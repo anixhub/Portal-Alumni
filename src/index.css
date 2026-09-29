@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @layer base {
   body {
@@ -17,3 +18,17 @@
   background-size: 32px 32px, 56px 56px;
   background-position: 0 0, 16px 24px;
 }
+
+@keyframes pinFloat {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-9px);
+  }
+}
+
+.animate-pin-float {
+  animation: pinFloat 0.7s ease-in-out infinite alternate;
+}
+

@@ -40,31 +40,31 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
   onResetPassword,
   onSave,
 }) => {
-  if (!isOpen || !alumni) return null;
-
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Form State for Editing
   const [formData, setFormData] = useState({
-    name: alumni.name,
-    nik: alumni.nik,
-    nis: alumni.nis,
-    gender: alumni.gender,
-    gradYear: alumni.gradYear,
-    entryYear: alumni.entryYear || '',
-    jenjang: alumni.jenjang,
-    asramaDulu: alumni.asramaDulu || '',
-    province: alumni.province || '',
-    city: alumni.city || '',
-    kecamatan: alumni.kecamatan || '',
-    desa: alumni.desa || '',
-    occupation: alumni.occupation || '',
-    institution: alumni.institution || '',
-    phone: alumni.phone || '',
-    email: alumni.email || '',
-    bio: alumni.bio || '',
-    photoUrl: alumni.photoUrl || '',
+    name: alumni?.name || '',
+    nik: alumni?.nik || '',
+    nis: alumni?.nis || '',
+    gender: alumni?.gender || 'L',
+    gradYear: alumni?.gradYear || '',
+    entryYear: alumni?.entryYear || '',
+    jenjang: alumni?.jenjang || '',
+    asramaDulu: alumni?.asramaDulu || '',
+    province: alumni?.province || '',
+    city: alumni?.city || '',
+    kecamatan: alumni?.kecamatan || '',
+    desa: alumni?.desa || '',
+    alamatLengkap: alumni?.alamatLengkap || '',
+    coordinates: alumni?.coordinates || null as { lat: number; lng: number } | null,
+    occupation: alumni?.occupation || '',
+    institution: alumni?.institution || '',
+    phone: alumni?.phone || '',
+    email: alumni?.email || '',
+    bio: alumni?.bio || '',
+    photoUrl: alumni?.photoUrl || '',
   });
 
   // Sync state if alumni prop changes
@@ -83,6 +83,8 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
         city: alumni.city || '',
         kecamatan: alumni.kecamatan || '',
         desa: alumni.desa || '',
+        alamatLengkap: alumni.alamatLengkap || '',
+        coordinates: alumni.coordinates || null,
         occupation: alumni.occupation || '',
         institution: alumni.institution || '',
         phone: alumni.phone || '',
@@ -93,6 +95,8 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
       setIsEditing(false);
     }
   }, [alumni]);
+
+  if (!isOpen || !alumni) return null;
 
   // Clean WhatsApp link
   const cleanPhone = alumni.phone.replace(/[^0-9]/g, '');
@@ -548,13 +552,17 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                   city={formData.city}
                   kecamatan={formData.kecamatan}
                   desa={formData.desa}
-                  onChange={({ province, city, kecamatan, desa }) => {
+                  alamatLengkap={formData.alamatLengkap}
+                  coordinates={formData.coordinates}
+                  onChange={({ province, city, kecamatan, desa, alamatLengkap, coordinates }) => {
                     setFormData({
                       ...formData,
                       province,
                       city,
                       kecamatan,
-                      desa
+                      desa,
+                      alamatLengkap: alamatLengkap || '',
+                      coordinates: coordinates || null,
                     });
                   }}
                 />

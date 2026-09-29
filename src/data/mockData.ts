@@ -18,6 +18,8 @@ export const INITIAL_ALUMNI: AlumniRecord[] = [
     province: 'Jawa Tengah',
     kecamatan: 'Sedan',
     desa: 'Karas',
+    alamatLengkap: 'Jl. Karas No. 12, RT 02 / RW 01',
+    coordinates: { lat: -6.7423, lng: 111.4589 },
     occupation: 'Guru Bahasa Arab & Penulis',
     institution: 'MAN 1 Rembang',
     password: '1234',

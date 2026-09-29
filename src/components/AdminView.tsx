@@ -479,41 +479,47 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* MODAL TAMBAH ALUMNI BARU */}
-      <AddAlumniModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSave={(data) => {
-          onAddAlumni(data);
-          triggerToast('Data alumni baru berhasil disimpan!');
-        }}
-      />
+      {isAddModalOpen && (
+        <AddAlumniModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={(data) => {
+            onAddAlumni(data);
+            triggerToast('Data alumni baru berhasil disimpan!');
+          }}
+        />
+      )}
 
       {/* MODAL EDIT DATA ALUMNI */}
-      <EditAlumniModal
-        isOpen={Boolean(editingAlumni)}
-        alumni={editingAlumni}
-        onClose={() => setEditingAlumni(null)}
-        onSave={(id, updated) => {
-          onUpdateAlumni(id, updated);
-          triggerToast('Perubahan data berhasil disimpan!');
-        }}
-      />
+      {editingAlumni && (
+        <EditAlumniModal
+          isOpen={Boolean(editingAlumni)}
+          alumni={editingAlumni}
+          onClose={() => setEditingAlumni(null)}
+          onSave={(id, updated) => {
+            onUpdateAlumni(id, updated);
+            triggerToast('Perubahan data berhasil disimpan!');
+          }}
+        />
+      )}
 
       {/* MODAL / TAMPILAN DETAIL BIODATA LAYAR PENUH & EDIT ADMIN */}
-      <AlumniDetailAdminModal
-        isOpen={Boolean(detailAlumni)}
-        alumni={detailAlumni}
-        onClose={() => setDetailAlumni(null)}
-        onResetPassword={(id) => {
-          onResetPassword(id);
-          triggerToast('Kata sandi berhasil di-reset ke: 1234');
-        }}
-        onSave={(id, updated) => {
-          onUpdateAlumni(id, updated);
-          setDetailAlumni((prev) => (prev ? { ...prev, ...updated } : null));
-          triggerToast('Perubahan data alumni berhasil disimpan!');
-        }}
-      />
+      {detailAlumni && (
+        <AlumniDetailAdminModal
+          isOpen={Boolean(detailAlumni)}
+          alumni={detailAlumni}
+          onClose={() => setDetailAlumni(null)}
+          onResetPassword={(id) => {
+            onResetPassword(id);
+            triggerToast('Kata sandi berhasil di-reset ke: 1234');
+          }}
+          onSave={(id, updated) => {
+            onUpdateAlumni(id, updated);
+            setDetailAlumni((prev) => (prev ? { ...prev, ...updated } : null));
+            triggerToast('Perubahan data alumni berhasil disimpan!');
+          }}
+        />
+      )}
 
       {/* MODAL TAMBAH AGENDA REUNI */}
       {isAddEventOpen && (
@@ -670,6 +676,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   city={filterCity}
                   kecamatan={filterKecamatan}
                   desa={filterDesa}
+                  showLocationTag={false}
+                  showAlamatLengkap={false}
                   onChange={({ province, city, kecamatan, desa }) => {
                     setFilterProvince(province);
                     setFilterCity(city);

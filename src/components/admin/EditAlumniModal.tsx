@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save, Edit, Database } from 'lucide-react';
 import { AlumniRecord } from '../../types';
+import { WilayahAddressFilter } from '../common/WilayahAddressFilter';
+import { LocationCoordinates } from '../common/FullscreenLocationMapModal';
 
 interface EditAlumniModalProps {
   isOpen: boolean;
@@ -15,32 +17,66 @@ export const EditAlumniModal: React.FC<EditAlumniModalProps> = ({
   onClose,
   onSave,
 }) => {
-  if (!isOpen || !alumni) return null;
+  const [name, setName] = useState(alumni?.name || '');
+  const [nik, setNik] = useState(alumni?.nik || '');
+  const [noKk, setNoKk] = useState(alumni?.noKk || '');
+  const [nis, setNis] = useState(alumni?.nis || '');
+  const [gradYear, setGradYear] = useState(alumni?.gradYear || '');
+  const [jenjang, setJenjang] = useState(alumni?.jenjang || '');
+  const [asramaDulu, setAsramaDulu] = useState(alumni?.asramaDulu || '');
+  const [phone, setPhone] = useState(alumni?.phone || '');
+  const [email, setEmail] = useState(alumni?.email || '');
+  const [province, setProvince] = useState(alumni?.province || '');
+  const [city, setCity] = useState(alumni?.city || '');
+  const [kecamatan, setKecamatan] = useState(alumni?.kecamatan || '');
+  const [desa, setDesa] = useState(alumni?.desa || '');
+  const [alamatLengkap, setAlamatLengkap] = useState(alumni?.alamatLengkap || '');
+  const [coordinates, setCoordinates] = useState<LocationCoordinates | null>(alumni?.coordinates || null);
+  const [occupation, setOccupation] = useState(alumni?.occupation || '');
+  const [institution, setInstitution] = useState(alumni?.institution || '');
 
-  const [name, setName] = useState(alumni.name);
-  const [nik, setNik] = useState(alumni.nik);
-  const [nis, setNis] = useState(alumni.nis);
-  const [gradYear, setGradYear] = useState(alumni.gradYear);
-  const [jenjang, setJenjang] = useState(alumni.jenjang);
-  const [asramaDulu, setAsramaDulu] = useState(alumni.asramaDulu);
-  const [phone, setPhone] = useState(alumni.phone);
-  const [email, setEmail] = useState(alumni.email);
-  const [city, setCity] = useState(alumni.city);
-  const [occupation, setOccupation] = useState(alumni.occupation);
-  const [institution, setInstitution] = useState(alumni.institution);
+  useEffect(() => {
+    if (alumni) {
+      setName(alumni.name || '');
+      setNik(alumni.nik || '');
+      setNoKk(alumni.noKk || '');
+      setNis(alumni.nis || '');
+      setGradYear(alumni.gradYear || '');
+      setJenjang(alumni.jenjang || '');
+      setAsramaDulu(alumni.asramaDulu || '');
+      setPhone(alumni.phone || '');
+      setEmail(alumni.email || '');
+      setProvince(alumni.province || '');
+      setCity(alumni.city || '');
+      setKecamatan(alumni.kecamatan || '');
+      setDesa(alumni.desa || '');
+      setAlamatLengkap(alumni.alamatLengkap || '');
+      setCoordinates(alumni.coordinates || null);
+      setOccupation(alumni.occupation || '');
+      setInstitution(alumni.institution || '');
+    }
+  }, [alumni]);
+
+  if (!isOpen || !alumni) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(alumni.id, {
       name,
       nik,
+      noKk: noKk || undefined,
       nis,
       gradYear,
       jenjang,
       asramaDulu,
       phone,
       email,
+      province,
       city,
+      kecamatan,
+      desa,
+      alamatLengkap,
+      coordinates: coordinates || undefined,
       occupation,
       institution,
     });
@@ -72,18 +108,22 @@ export const EditAlumniModal: React.FC<EditAlumniModalProps> = ({
               <label className="block font-semibold text-slate-700 mb-1">NIK (16 Digit)</label>
               <input
                 type="text"
+                maxLength={16}
                 value={nik}
-                onChange={(e) => setNik(e.target.value)}
+                onChange={(e) => setNik(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
+                placeholder="3507xxxxxxxxxxxx"
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Nomor Induk Santri (NIS)</label>
+              <label className="block font-semibold text-slate-700 mb-1">No. KK (16 Digit)</label>
               <input
                 type="text"
-                value={nis}
-                onChange={(e) => setNis(e.target.value)}
+                maxLength={16}
+                value={noKk}
+                onChange={(e) => setNoKk(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
+                placeholder="Nomor KK (Opsional)"
               />
             </div>
           </div>
@@ -100,6 +140,15 @@ export const EditAlumniModal: React.FC<EditAlumniModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="block font-semibold text-slate-700 mb-1">Nomor Induk Santri (NIS)</label>
+              <input
+                type="text"
+                value={nis}
+                onChange={(e) => setNis(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
+              />
+            </div>
+            <div>
               <label className="block font-semibold text-slate-700 mb-1">Tahun Lulus (Angkatan)</label>
               <input
                 type="text"
@@ -108,12 +157,24 @@ export const EditAlumniModal: React.FC<EditAlumniModalProps> = ({
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Jenjang / Marhalah</label>
               <input
                 type="text"
                 value={jenjang}
                 onChange={(e) => setJenjang(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Asrama Dulu</label>
+              <input
+                type="text"
+                value={asramaDulu}
+                onChange={(e) => setAsramaDulu(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
               />
             </div>
@@ -140,25 +201,34 @@ export const EditAlumniModal: React.FC<EditAlumniModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Kota Domisili</label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Kamar / Komplek Dulu</label>
-              <input
-                type="text"
-                value={asramaDulu}
-                onChange={(e) => setAsramaDulu(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
-              />
-            </div>
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Kamar / Komplek Dulu</label>
+            <input
+              type="text"
+              value={asramaDulu}
+              onChange={(e) => setAsramaDulu(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white"
+            />
+          </div>
+
+          {/* Wilayah & Alamat Domisili */}
+          <div className="pt-2 border-t border-slate-100">
+            <WilayahAddressFilter
+              province={province}
+              city={city}
+              kecamatan={kecamatan}
+              desa={desa}
+              alamatLengkap={alamatLengkap}
+              coordinates={coordinates}
+              onChange={(vals) => {
+                setProvince(vals.province);
+                setCity(vals.city);
+                setKecamatan(vals.kecamatan);
+                setDesa(vals.desa);
+                if (vals.alamatLengkap !== undefined) setAlamatLengkap(vals.alamatLengkap);
+                if (vals.coordinates !== undefined) setCoordinates(vals.coordinates);
+              }}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

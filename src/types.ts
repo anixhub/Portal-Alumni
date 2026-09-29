@@ -1,6 +1,7 @@
 export interface AlumniRecord {
   id: string;
   nik: string;
+  noKk?: string;
   nis: string;
   name: string;
   username?: string;
@@ -15,6 +16,8 @@ export interface AlumniRecord {
   province: string;
   kecamatan?: string;
   desa?: string;
+  alamatLengkap?: string;
+  coordinates?: { lat: number; lng: number } | null;
   occupation: string;
   institution: string;
   password: string; // default '1234'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserCheck, Shield, KeyRound, Sparkles, Check, ArrowRight } from 'lucide-react';
 import { AlumniRecord } from '../types';
 
@@ -15,14 +15,21 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({
   onSave,
   onDismiss,
 }) => {
-  const [username, setUsername] = useState(alumni.username || '');
-  const [phone, setPhone] = useState(alumni.phone || '');
+  const [username, setUsername] = useState(alumni?.username || '');
+  const [phone, setPhone] = useState(alumni?.phone || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (alumni) {
+      setUsername(alumni.username || '');
+      setPhone(alumni.phone || '');
+    }
+  }, [alumni]);
+
+  if (!isOpen || !alumni) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

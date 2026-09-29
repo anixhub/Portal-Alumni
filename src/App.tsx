@@ -224,17 +224,21 @@ export default function App() {
       )}
 
       {/* MODAL PENDAFTARAN PENGAJUAN AKUN */}
-      <RegisterModal
-        isOpen={isRegisterOpen}
-        onClose={() => setIsRegisterOpen(false)}
-        onSuccess={handleRegisterSuccess}
-      />
+      {isRegisterOpen && (
+        <RegisterModal
+          isOpen={isRegisterOpen}
+          onClose={() => setIsRegisterOpen(false)}
+          onSuccess={handleRegisterSuccess}
+        />
+      )}
 
       {/* MODAL LUPA KATA SANDI */}
-      <ForgotPasswordModal
-        isOpen={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
-      />
+      {isForgotPasswordOpen && (
+        <ForgotPasswordModal
+          isOpen={isForgotPasswordOpen}
+          onClose={() => setIsForgotPasswordOpen(false)}
+        />
+      )}
     </div>
   );
 }

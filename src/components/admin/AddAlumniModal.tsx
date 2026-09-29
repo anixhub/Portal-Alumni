@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, Database, CheckCircle2, AlertCircle } from 'lucide-react';
 import { AlumniRecord } from '../../types';
+import { WilayahAddressFilter } from '../common/WilayahAddressFilter';
+import { LocationCoordinates } from '../common/FullscreenLocationMapModal';
 
 interface AddAlumniModalProps {
   isOpen: boolean;
@@ -25,6 +27,10 @@ export const AddAlumniModal: React.FC<AddAlumniModalProps> = ({
   const [email, setEmail] = useState('');
   const [city, setCity] = useState('Malang');
   const [province, setProvince] = useState('Jawa Timur');
+  const [kecamatan, setKecamatan] = useState('');
+  const [desa, setDesa] = useState('');
+  const [alamatLengkap, setAlamatLengkap] = useState('');
+  const [coordinates, setCoordinates] = useState<LocationCoordinates | null>(null);
   const [occupation, setOccupation] = useState('');
   const [institution, setInstitution] = useState('');
   const [bio, setBio] = useState('');
@@ -68,6 +74,10 @@ export const AddAlumniModal: React.FC<AddAlumniModalProps> = ({
       phone: phone.trim() || '08123456789',
       city: city.trim(),
       province: province.trim(),
+      kecamatan: kecamatan.trim() || undefined,
+      desa: desa.trim() || undefined,
+      alamatLengkap: alamatLengkap.trim() || undefined,
+      coordinates: coordinates || undefined,
       occupation: occupation.trim() || 'Alumni At-taroqqy',
       institution: institution.trim(),
       password: '1234', // default password for alumni
@@ -288,14 +298,22 @@ export const AddAlumniModal: React.FC<AddAlumniModalProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Kota Domisili</label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Malang / Surabaya / Jakarta"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:bg-white focus:outline-none"
+                  <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+                    <WilayahAddressFilter
+                      province={province}
+                      city={city}
+                      kecamatan={kecamatan}
+                      desa={desa}
+                      alamatLengkap={alamatLengkap}
+                      coordinates={coordinates}
+                      onChange={(vals) => {
+                        setProvince(vals.province);
+                        setCity(vals.city);
+                        setKecamatan(vals.kecamatan);
+                        setDesa(vals.desa);
+                        if (vals.alamatLengkap !== undefined) setAlamatLengkap(vals.alamatLengkap);
+                        if (vals.coordinates !== undefined) setCoordinates(vals.coordinates);
+                      }}
                     />
                   </div>
 

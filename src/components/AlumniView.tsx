@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   LogOut, 
   Calendar, 
@@ -19,13 +20,22 @@ import {
   Edit3, 
   Save, 
   IdCard, 
-  X,
-  MessageCircle,
-  Clock,
-  Image as ImageIcon,
-  ZoomIn
+  X, 
+  MessageCircle, 
+  Clock, 
+  Image as ImageIcon, 
+  ZoomIn,
+  Camera,
+  Trash2,
+  Maximize2,
+  User,
+  Mail,
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { AlumniRecord, EventAgenda } from '../types';
+import { WilayahAddressFilter } from './common/WilayahAddressFilter';
+import { LocationCoordinates } from './common/FullscreenLocationMapModal';
 import posterReuniImg from '../assets/images/poster_reuni_akbar_1790648045947.jpg';
 import logoPonpesImg from '../assets/images/logo_ponpes_attaroqqy_1790648746461.jpg';
 
@@ -55,19 +65,103 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Profile Edit State
+  const [editNik, setEditNik] = useState(alumni.nik);
+  const [editNoKk, setEditNoKk] = useState(alumni.noKk || '');
   const [editName, setEditName] = useState(alumni.name);
   const [editUsername, setEditUsername] = useState(alumni.username || '');
   const [editPhone, setEditPhone] = useState(alumni.phone);
   const [editEmail, setEditEmail] = useState(alumni.email);
   const [editCity, setEditCity] = useState(alumni.city);
   const [editProvince, setEditProvince] = useState(alumni.province);
+  const [editKecamatan, setEditKecamatan] = useState(alumni.kecamatan || '');
+  const [editDesa, setEditDesa] = useState(alumni.desa || '');
+  const [editAlamatLengkap, setEditAlamatLengkap] = useState(alumni.alamatLengkap || '');
+  const [editCoordinates, setEditCoordinates] = useState<LocationCoordinates | null>(alumni.coordinates || null);
   const [editOccupation, setEditOccupation] = useState(alumni.occupation);
   const [editInstitution, setEditInstitution] = useState(alumni.institution);
   const [editBio, setEditBio] = useState(alumni.bio || '');
+  const [editPhotoUrl, setEditPhotoUrl] = useState<string | undefined>(alumni.photoUrl);
   const [editShareContact, setEditShareContact] = useState(alumni.shareContact);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [showFullscreenPhoto, setShowFullscreenPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditNik(alumni.nik);
+    setEditNoKk(alumni.noKk || '');
+    setEditName(alumni.name);
+    setEditUsername(alumni.username || '');
+    setEditPhone(alumni.phone);
+    setEditEmail(alumni.email);
+    setEditCity(alumni.city);
+    setEditProvince(alumni.province);
+    setEditKecamatan(alumni.kecamatan || '');
+    setEditDesa(alumni.desa || '');
+    setEditAlamatLengkap(alumni.alamatLengkap || '');
+    setEditCoordinates(alumni.coordinates || null);
+    setEditOccupation(alumni.occupation);
+    setEditInstitution(alumni.institution);
+    setEditBio(alumni.bio || '');
+    setEditPhotoUrl(alumni.photoUrl);
+    setEditShareContact(alumni.shareContact);
+  }, [alumni]);
+
+  // Handle uploading and scaling photo
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      triggerToast('Format file harus berupa gambar (JPG, PNG, atau WEBP)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.88);
+          setEditPhotoUrl(compressed);
+          triggerToast('Foto profil dipilih. Klik "Simpan Perubahan" untuk menyimpan.');
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle deleting photo
+  const handleDeletePhoto = () => {
+    setEditPhotoUrl(undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    triggerToast('Foto profil dihapus. Klik "Simpan Perubahan" untuk menyimpan.');
+  };
 
   // Directory Search State (Restricted Information)
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,16 +177,41 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
     e.preventDefault();
     setIsSavingProfile(true);
 
+    if (!editNik.trim()) {
+      triggerToast('NIK tidak boleh kosong!');
+      setIsSavingProfile(false);
+      return;
+    }
+
+    if (editNik.trim().length !== 16) {
+      triggerToast('NIK harus terdiri dari 16 digit angka');
+      setIsSavingProfile(false);
+      return;
+    }
+
+    if (editNoKk.trim() && editNoKk.trim().length !== 16) {
+      triggerToast('Nomor KK harus terdiri dari 16 digit angka');
+      setIsSavingProfile(false);
+      return;
+    }
+
     const updates: Partial<AlumniRecord> = {
+      nik: editNik.trim(),
+      noKk: editNoKk.trim() || undefined,
       name: editName,
       username: editUsername.trim() || undefined,
       phone: editPhone,
       email: editEmail,
       city: editCity,
       province: editProvince,
+      kecamatan: editKecamatan,
+      desa: editDesa,
+      alamatLengkap: editAlamatLengkap,
+      coordinates: editCoordinates || undefined,
       occupation: editOccupation,
       institution: editInstitution,
       bio: editBio,
+      photoUrl: editPhotoUrl || undefined,
       shareContact: editShareContact,
     };
 
@@ -146,8 +265,12 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
       <div className="bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#0ea5e9] text-white pt-6 pb-4 px-5 shadow-md shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-white text-sky-700 font-extrabold flex items-center justify-center text-sm shadow-sm">
-              {alumni.name.charAt(0)}
+            <div className="w-9 h-9 rounded-2xl bg-white text-sky-700 font-extrabold flex items-center justify-center text-sm shadow-sm overflow-hidden shrink-0">
+              {alumni.photoUrl ? (
+                <img src={alumni.photoUrl} alt={alumni.name} className="w-full h-full object-cover" />
+              ) : (
+                alumni.name.charAt(0)
+              )}
             </div>
             <div>
               <p className="text-[10px] text-sky-200 font-semibold uppercase tracking-wider">
@@ -238,8 +361,14 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                     {/* Middle: Data & Photo */}
                     <div className="flex items-center gap-3.5 my-auto">
                       <div className="w-14 h-16 sm:w-16 sm:h-20 bg-white/10 border-2 border-white/40 rounded-xl overflow-hidden shadow-inner flex flex-col items-center justify-center shrink-0">
-                        <span className="text-2xl">👨‍🎓</span>
-                        <span className="text-[8px] text-sky-200 mt-1 font-mono">FOTO KTA</span>
+                        {alumni.photoUrl ? (
+                          <img src={alumni.photoUrl} alt={alumni.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <>
+                            <span className="text-2xl">👨‍🎓</span>
+                            <span className="text-[8px] text-sky-200 mt-1 font-mono">FOTO KTA</span>
+                          </>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] font-mono text-sky-200 tracking-wider">
@@ -533,8 +662,12 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:border-sky-300 transition-all cursor-pointer flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm shrink-0 border border-sky-200">
-                      {item.name.charAt(0)}
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm shrink-0 border border-sky-200 overflow-hidden">
+                      {item.photoUrl ? (
+                        <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        item.name.charAt(0)
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -577,55 +710,198 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
         {/* ================= TAB 4: EDIT PROFIL MANDIRI & GANTI SANDI ================= */}
         {activeTab === 'profile' && (
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-              <h3 className="font-display font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <Edit3 className="w-4 h-4 text-sky-600" />
-                <span>Pengaturan Profil Mandiri</span>
+            {/* ================= 1. HERO TOP: LINGKARAN FOTO PROFIL & IDENTITAS ================= */}
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs text-center relative overflow-hidden">
+              {/* Subtle gradient accent top */}
+              <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-sky-50 to-transparent pointer-events-none" />
+
+              {/* Lingkaran Foto Profil - Klik untuk Fullscreen Bersih */}
+              <div className="relative inline-block mx-auto mb-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowFullscreenPhoto(true)}
+                  className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-white shadow-xl shadow-slate-300/60 overflow-hidden cursor-pointer group transition-all duration-200 hover:ring-sky-300 active:scale-95 focus:outline-none flex items-center justify-center bg-slate-100"
+                  title="Klik untuk melihat foto dalam layar penuh bersih"
+                >
+                  {editPhotoUrl ? (
+                    <img
+                      src={editPhotoUrl}
+                      alt={editName}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center font-bold text-3xl shadow-inner">
+                      <span>{editName.charAt(0)}</span>
+                      <span className="text-[9px] font-normal tracking-wide text-sky-100 opacity-90 mt-0.5">Tambah Foto</span>
+                    </div>
+                  )}
+
+                  {/* Hover Overlay: "Layar Penuh" */}
+                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-medium gap-1">
+                    <Maximize2 className="w-4 h-4 text-white" />
+                    <span>Layar Penuh</span>
+                  </div>
+                </button>
+
+                {/* Floating Camera Button (Ganti Foto Shortcut) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer active:scale-90 transition-all"
+                  title="Ganti Foto Profil"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Nama & Data Identitas */}
+              <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 leading-tight">
+                {editName || alumni.name}
               </h3>
-              <p className="text-xs text-slate-500">
-                Kelola data pribadi, username alternatif, dan kata sandi Anda.
+              <p className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1.5 font-medium flex-wrap">
+                <span>NIS: <span className="font-mono text-slate-700">{alumni.nis}</span></span>
+                <span>·</span>
+                <span>Angkatan {alumni.gradYear}</span>
+                <span>·</span>
+                <span className="text-sky-700 font-semibold">{alumni.jenjang}</span>
               </p>
+
+              {/* Tombol Aksi: Lihat Penuh, Ganti Foto, Hapus Foto */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowFullscreenPhoto(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Buka foto profil fullscreen bersih"
+                >
+                  <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Lihat Foto</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3.5 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-sky-200/60"
+                  title="Unggah foto profil baru dari galeri/kamera"
+                >
+                  <Camera className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Ganti Foto</span>
+                </button>
+
+                {editPhotoUrl && (
+                  <button
+                    type="button"
+                    onClick={handleDeletePhoto}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200/60"
+                    title="Hapus foto profil saat ini"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Hapus</span>
+                  </button>
+                )}
+
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  onChange={handlePhotoSelect}
+                  className="hidden"
+                />
+              </div>
             </div>
 
-            {/* Read-Only Verified Data from Pondok Database */}
-            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+            {/* ================= 2. DATA POKOK SANTRI (DATABASE TERVERIFIKASI PONDOK) ================= */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
-                  <Lock className="w-3 h-3 text-slate-400" />
-                  Data Pokok Santri
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Data Pokok Akademik Santri</span>
                 </span>
-                <span className="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono">
+                <span className="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-semibold">
                   TERKUNCI
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3 rounded-xl border border-slate-200/60">
                 <div>
-                  <span className="text-[10px] text-slate-400 block">NIK Santri:</span>
-                  <span className="font-mono font-medium text-slate-800">{alumni.nik}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Nomor Induk Santri (NIS):</span>
+                  <span className="text-[10px] text-slate-400 block font-medium">Nomor Induk Santri (NIS):</span>
                   <span className="font-mono font-medium text-slate-800">{alumni.nis}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block">Tahun Kelulusan:</span>
+                  <span className="text-[10px] text-slate-400 block font-medium">Tahun Kelulusan:</span>
                   <span className="font-semibold text-slate-800">Angkatan {alumni.gradYear}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block">Jenjang / Marhalah:</span>
+                  <span className="text-[10px] text-slate-400 block font-medium">Jenjang / Marhalah:</span>
                   <span className="font-semibold text-slate-800 truncate block">{alumni.jenjang}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-medium">Asrama Dulu:</span>
+                  <span className="font-semibold text-slate-800 truncate block">{alumni.asramaDulu || 'Komplek Utama'}</span>
                 </div>
               </div>
               <p className="text-[10px] text-slate-400 italic">
-                *Jika terdapat kesalahan pada data pokok di atas, silakan hubungi bagian Admin Pondok untuk verifikasi berkas ijazah.
+                *Data akademik di atas bersumber dari pangkalan data pondok. Untuk perubahan silakan hubungi Admin Pondok.
               </p>
             </div>
 
-            {/* Editable Information */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3 text-xs">
-              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                Data Kontak & Domisili Terkini
-              </h4>
+            {/* ================= 3. DATA PRIBADI & IDENTITAS KEPENDUDUKAN ================= */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
+              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                <User className="w-4 h-4 text-sky-600" />
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
+                  Informasi Pribadi & Identitas
+                </h4>
+              </div>
+
+              {/* NIK & No. KK Editable Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Nomor Induk Kependudukan (NIK)</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">16 Digit</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={16}
+                    value={editNik}
+                    onChange={(e) => setEditNik(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                    placeholder="3507xxxxxxxxxxxx"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    NIK digunakan untuk identitas dan alternatif login portal.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Nomor Kartu Keluarga (No. KK)</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">16 Digit</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={16}
+                    value={editNoKk}
+                    onChange={(e) => setEditNoKk(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                    placeholder="Nomor KK (16 digit)"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Opsional untuk kelengkapan administrasi data alumni.
+                  </p>
+                </div>
+              </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap & Gelar</label>
@@ -633,13 +909,14 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                  placeholder="Nama lengkap Anda beserta gelar"
                 />
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Username Akun (Untuk Alternatif Login)
+                  Username Akun (Alternatif Login)
                 </label>
                 <div className="relative">
                   <UserCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -648,40 +925,113 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                     placeholder="Contoh: mulianingsih_20"
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Username dapat digunakan untuk login sebagai pengganti NIK/NIS.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* Nomor WhatsApp + Tombol Izin Tampilkan ke Alumni Lain Tepat di Bawahnya */}
+              <div className="space-y-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-slate-400" />
+                    <span>Nomor WhatsApp</span>
+                  </label>
                   <input
                     type="tel"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                    placeholder="Contoh: 08123456789"
                   />
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Kota Domisili</label>
-                  <input
-                    type="text"
-                    value={editCity}
-                    onChange={(e) => setEditCity(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
-                  />
+
+                {/* ================= TOMBOL IZIN DITAMPILKAN KE ALUMNI LAIN (DI BAWAH INPUT NO WA) ================= */}
+                <div className="p-3 rounded-2xl bg-sky-50/80 border border-sky-200/80 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      <span>Izin Tampilkan Nomor WA ke Sesama Alumni</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Izinkan nomor WhatsApp ini dapat dilihat oleh alumni lain di halaman direktori untuk silaturahmi.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={editShareContact}
+                      onChange={(e) => setEditShareContact(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 shadow-inner"></div>
+                  </label>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Mail className="w-3 h-3 text-slate-400" />
+                  <span>Alamat Email</span>
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                  placeholder="email@contoh.com"
+                />
+              </div>
+            </div>
+
+            {/* ================= 4. DOMISILI & TITIK LOKASI PETA ================= */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
+              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                <MapPin className="w-4 h-4 text-rose-500" />
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
+                  Domisili & Titik Lokasi Terkini
+                </h4>
+              </div>
+
+              <WilayahAddressFilter
+                province={editProvince}
+                city={editCity}
+                kecamatan={editKecamatan}
+                desa={editDesa}
+                alamatLengkap={editAlamatLengkap}
+                coordinates={editCoordinates}
+                onChange={(vals) => {
+                  setEditProvince(vals.province);
+                  setEditCity(vals.city);
+                  setEditKecamatan(vals.kecamatan);
+                  setEditDesa(vals.desa);
+                  if (vals.alamatLengkap !== undefined) setEditAlamatLengkap(vals.alamatLengkap);
+                  if (vals.coordinates !== undefined) setEditCoordinates(vals.coordinates);
+                }}
+              />
+            </div>
+
+            {/* ================= 5. PROFESI & BIO ALUMNI ================= */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
+              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                <Briefcase className="w-4 h-4 text-sky-600" />
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
+                  Profesi & Aktivitas Alumni
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Profesi / Pekerjaan</label>
                   <input
                     type="text"
                     value={editOccupation}
                     onChange={(e) => setEditOccupation(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                    placeholder="Contoh: Guru / Wiraswasta / Dokter"
                   />
                 </div>
                 <div>
@@ -690,7 +1040,8 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                     type="text"
                     value={editInstitution}
                     onChange={(e) => setEditInstitution(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+                    placeholder="Nama tempat kerja / usaha"
                   />
                 </div>
               </div>
@@ -701,77 +1052,61 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
                   rows={2}
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="Ceritakan singkat aktivitas Anda saat ini..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
-                />
-              </div>
-
-              {/* Privacy Toggle */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-slate-800">Tampilkan No. WA ke Sesama Alumni</p>
-                  <p className="text-[10px] text-slate-500">
-                    Memudahkan rekan alumni menghubungi Anda untuk silaturahmi.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={editShareContact}
-                  onChange={(e) => setEditShareContact(e.target.checked)}
-                  className="w-4 h-4 text-sky-600 rounded cursor-pointer"
+                  placeholder="Ceritakan singkat aktivitas atau pesan silaturahmi Anda..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all resize-none"
                 />
               </div>
             </div>
 
-            {/* Ganti Kata Sandi Section */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            {/* ================= 6. KEAMANAN & KATA SANDI ================= */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-sky-600" />
                   <span>Ubah Kata Sandi (Dari Default 1234)</span>
                 </h4>
                 {alumni.isPasswordChanged ? (
-                  <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                     Sandi Sudah Diperbarui
                   </span>
                 ) : (
-                  <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60">
                     Masih Sandi Default 1234
                   </span>
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-slate-600 mb-1">Kata Sandi Baru</label>
+                  <label className="block text-slate-600 mb-1 font-medium">Kata Sandi Baru</label>
                   <input
                     type="password"
                     placeholder="Kosongkan jika tidak ingin mengubah sandi"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
                   />
                 </div>
                 {newPassword && (
                   <div>
-                    <label className="block text-slate-600 mb-1">Ulangi Kata Sandi Baru</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Ulangi Kata Sandi Baru</label>
                     <input
                       type="password"
                       placeholder="Konfirmasi kata sandi baru"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
                     />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Save Button */}
+            {/* ================= 7. TOMBOL SIMPAN PERUBAHAN ================= */}
             <button
               type="submit"
               disabled={isSavingProfile}
-              className="w-full py-3 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold rounded-2xl shadow-md shadow-sky-600/20 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 transition-all"
+              className="w-full py-3.5 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold rounded-2xl shadow-lg shadow-sky-600/25 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 transition-all active:scale-[0.99]"
             >
               {isSavingProfile ? (
                 <span>Menyimpan Perubahan...</span>
@@ -898,8 +1233,12 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
             </div>
 
             <div className="text-center space-y-1.5">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-600 to-sky-400 text-white font-bold text-xl flex items-center justify-center mx-auto shadow-md">
-                {selectedAlumniDetail.name.charAt(0)}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-600 to-sky-400 text-white font-bold text-xl flex items-center justify-center mx-auto shadow-md overflow-hidden ring-2 ring-white">
+                {selectedAlumniDetail.photoUrl ? (
+                  <img src={selectedAlumniDetail.photoUrl} alt={selectedAlumniDetail.name} className="w-full h-full object-cover" />
+                ) : (
+                  selectedAlumniDetail.name.charAt(0)
+                )}
               </div>
               <h4 className="font-bold text-base text-slate-900">{selectedAlumniDetail.name}</h4>
               <p className="text-xs text-sky-700 font-semibold">
@@ -1020,6 +1359,105 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ================= MODAL FULLSCREEN BERSIH: FOTO PROFIL ================= */}
+      {showFullscreenPhoto &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[999999] bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200 select-none pointer-events-auto"
+            onClick={() => setShowFullscreenPhoto(false)}
+          >
+            {/* Top Bar: Title & Close Button */}
+            <div
+              className="flex items-center justify-between text-white pb-3 border-b border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="min-w-0">
+                <h3 className="font-display font-bold text-sm sm:text-base text-white truncate">
+                  Foto Profil
+                </h3>
+                <p className="text-[11px] text-slate-400 truncate">
+                  {editName || alumni.name} · NIS {alumni.nis}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFullscreenPhoto(false)}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="Tutup Layar Penuh"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Center Display: Clean Fullscreen Photo or Clean Large Avatar */}
+            <div
+              className="flex-1 flex items-center justify-center my-4 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {editPhotoUrl ? (
+                <div className="relative max-h-[72vh] max-w-[92vw] flex items-center justify-center animate-in zoom-in-95 duration-200">
+                  <img
+                    src={editPhotoUrl}
+                    alt={editName || alumni.name}
+                    className="max-h-[72vh] max-w-[92vw] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10"
+                  />
+                </div>
+              ) : (
+                <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
+                  <div className="w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-400 text-white font-bold text-6xl sm:text-7xl flex items-center justify-center mx-auto shadow-2xl ring-4 ring-white/20">
+                    {(editName || alumni.name).charAt(0)}
+                  </div>
+                  <p className="text-sm text-slate-300 font-medium">
+                    Belum ada foto profil kustom yang dipasang
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Action Bar: Ganti Foto, Hapus Foto, Tutup */}
+            <div
+              className="flex flex-wrap items-center justify-center gap-2.5 pt-3 border-t border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  fileInputRef.current?.click();
+                }}
+                className="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-sky-600/30 transition-all active:scale-95 cursor-pointer"
+                title="Pilih foto baru dari perangkat"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Ganti Foto</span>
+              </button>
+
+              {editPhotoUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeletePhoto();
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-semibold text-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+                  title="Hapus foto profil"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Hapus Foto</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowFullscreenPhoto(false)}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                <span>Tutup</span>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
