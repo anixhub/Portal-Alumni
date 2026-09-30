@@ -31,11 +31,28 @@ import {
   User,
   Mail,
   CreditCard,
-  FileText
+  FileText,
+  Pencil,
+  ScanFace,
+  Coins,
+  Glasses,
+  Languages,
+  Smartphone,
+  KeyRound,
+  Check,
+  GraduationCap,
+  Users,
+  Heart,
+  AtSign,
+  FileCheck,
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { AlumniRecord, EventAgenda } from '../types';
 import { WilayahAddressFilter } from './common/WilayahAddressFilter';
+import { DateWheelPicker } from './common/DateWheelPicker';
 import { LocationCoordinates } from './common/FullscreenLocationMapModal';
+import { AlumniDetailAdminModal } from './admin/AlumniDetailAdminModal';
 import posterReuniImg from '../assets/images/poster_reuni_akbar_1790648045947.jpg';
 import logoPonpesImg from '../assets/images/logo_ponpes_attaroqqy_1790648746461.jpg';
 
@@ -49,6 +66,162 @@ interface AlumniViewProps {
 }
 
 type TabType = 'kta' | 'events' | 'directory' | 'profile';
+
+/**
+ * Komponen Viewer Foto Profil Layar Penuh Bersih
+ * Hanya menampilkan foto fullscreen tanpa UI mengganggu, hanya ada tombol X dan tombol Hapus.
+ * Dilengkapi fitur pinch-to-zoom (cubit), double-tap zoom, mouse-wheel zoom, dan geser (pan).
+ */
+const FullscreenPhotoViewerModal: React.FC<{
+  photoUrl?: string;
+  name: string;
+  onClose: () => void;
+  onDelete?: () => void;
+}> = ({ photoUrl, name, onClose, onDelete }) => {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const touchStartRef = useRef<{ dist: number; scale: number; x: number; y: number; posX: number; posY: number }>({ dist: 0, scale: 1, x: 0, y: 0, posX: 0, posY: 0 });
+  const isDraggingRef = useRef(false);
+  const lastTapRef = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartRef.current = {
+        dist,
+        scale,
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        posX: position.x,
+        posY: position.y
+      };
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1) {
+          setScale(1);
+          setPosition({ x: 0, y: 0 });
+        } else {
+          setScale(2.5);
+        }
+        lastTapRef.current = 0;
+      } else {
+        lastTapRef.current = now;
+      }
+      isDraggingRef.current = true;
+      touchStartRef.current.x = e.touches[0].clientX;
+      touchStartRef.current.y = e.touches[0].clientY;
+      touchStartRef.current.posX = position.x;
+      touchStartRef.current.posY = position.y;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (touchStartRef.current.dist > 0) {
+        const factor = dist / touchStartRef.current.dist;
+        const newScale = Math.min(Math.max(touchStartRef.current.scale * factor, 1), 6);
+        setScale(newScale);
+        if (newScale === 1) {
+          setPosition({ x: 0, y: 0 });
+        }
+      }
+    } else if (e.touches.length === 1 && scale > 1 && isDraggingRef.current) {
+      const dx = e.touches[0].clientX - touchStartRef.current.x;
+      const dy = e.touches[0].clientY - touchStartRef.current.y;
+      setPosition({
+        x: touchStartRef.current.posX + dx,
+        y: touchStartRef.current.posY + dy
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+    if (scale <= 1) {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = -e.deltaY * 0.002;
+    const newScale = Math.min(Math.max(scale + delta, 1), 6);
+    setScale(newScale);
+    if (newScale === 1) {
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[999999] bg-black flex items-center justify-center overflow-hidden touch-none select-none animate-in fade-in duration-200"
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Tombol kontrol sudut kanan atas: Hanya Ikon Hapus dan X Tutup */}
+      <div className="absolute top-5 right-5 sm:top-6 sm:right-6 z-50 flex items-center gap-3">
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="w-11 h-11 rounded-full bg-black/60 hover:bg-rose-600/90 text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-90"
+            title="Hapus foto profil"
+          >
+            <Trash2 className="w-5 h-5 text-white" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="w-11 h-11 rounded-full bg-black/60 hover:bg-white/25 text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-90"
+          title="Tutup"
+        >
+          <X className="w-6 h-6 text-white" />
+        </button>
+      </div>
+
+      {/* Gambar layar penuh bersih dengan dukungan pinch & pan */}
+      <div
+        className="w-full h-full flex items-center justify-center p-0 cursor-grab active:cursor-grabbing transition-transform duration-75"
+        style={{
+          transform: `translate3d(${position.x}px, ${position.y}px, 0px) scale(${scale})`,
+          transformOrigin: 'center center'
+        }}
+      >
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={name}
+            className="w-full h-full object-contain pointer-events-none"
+            draggable={false}
+          />
+        ) : (
+          <div className="w-56 h-56 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold text-7xl flex items-center justify-center shadow-2xl">
+            {name.charAt(0)}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 export const AlumniView: React.FC<AlumniViewProps> = ({
   alumni,
@@ -66,8 +239,13 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
 
   // Profile Edit State
   const [editNik, setEditNik] = useState(alumni.nik);
-  const [editNoKk, setEditNoKk] = useState(alumni.noKk || '');
+  const [editNoKk, setEditNoKk] = useState(alumni.noKk || '3507123456780000');
   const [editName, setEditName] = useState(alumni.name);
+  const [editTempatLahir, setEditTempatLahir] = useState(alumni.tempatLahir || 'Rembang');
+  const [editTanggalLahir, setEditTanggalLahir] = useState(alumni.tanggalLahir || '1998-05-14');
+  const [editGender, setEditGender] = useState<'L' | 'P'>(alumni.gender || 'L');
+  const [editUrutanAnak, setEditUrutanAnak] = useState<number>(alumni.urutanAnak || 2);
+  const [editJumlahSaudara, setEditJumlahSaudara] = useState<number>(alumni.jumlahSaudara || 5);
   const [editUsername, setEditUsername] = useState(alumni.username || '');
   const [editPhone, setEditPhone] = useState(alumni.phone);
   const [editEmail, setEditEmail] = useState(alumni.email);
@@ -82,16 +260,98 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
   const [editBio, setEditBio] = useState(alumni.bio || '');
   const [editPhotoUrl, setEditPhotoUrl] = useState<string | undefined>(alumni.photoUrl);
   const [editShareContact, setEditShareContact] = useState(alumni.shareContact);
+  const [editShareFullAddress, setEditShareFullAddress] = useState(alumni.shareFullAddress !== false);
+
+  // Username Check State
+  const [newUsernameInput, setNewUsernameInput] = useState('');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'available' | 'taken'>('idle');
+  const checkDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleUsernameInputChange = (val: string) => {
+    const cleaned = val.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setNewUsernameInput(cleaned);
+    if (checkDebounceRef.current) clearTimeout(checkDebounceRef.current);
+
+    if (!cleaned.trim()) {
+      setIsCheckingUsername(false);
+      setUsernameStatus('idle');
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    checkDebounceRef.current = setTimeout(() => {
+      setIsCheckingUsername(false);
+      const isTaken = allAlumni.some(
+        (a) => a.id !== alumni.id && a.username && a.username.toLowerCase() === cleaned
+      );
+      setUsernameStatus(isTaken ? 'taken' : 'available');
+    }, 450);
+  };
+
+  // Riwayat Pendidikan State
+  const [editNism, setEditNism] = useState(alumni.nism || '131233170001');
+  const [editNisn, setEditNisn] = useState(alumni.nisn || '0012345678');
+  const [editEntryYear, setEditEntryYear] = useState(alumni.entryYear || '2014');
+  const [editGradYear, setEditGradYear] = useState(alumni.gradYear || '2020');
+  const [editEntryDate, setEditEntryDate] = useState(alumni.entryDate || `${alumni.entryYear || '2014'}-07-15`);
+  const [editGradDate, setEditGradDate] = useState(alumni.gradDate || `${alumni.gradYear || '2020'}-06-20`);
+  const [tempEntryDate, setTempEntryDate] = useState(alumni.entryDate || `${alumni.entryYear || '2014'}-07-15`);
+  const [tempGradDate, setTempGradDate] = useState(alumni.gradDate || `${alumni.gradYear || '2020'}-06-20`);
+  const [activeDateTab, setActiveDateTab] = useState<'masuk' | 'keluar'>('masuk');
+
+  // Informasi Orang Tua State
+  const [editNamaAyah, setEditNamaAyah] = useState(alumni.namaAyah || 'H. Abdul Rasyid');
+  const [editNikAyah, setEditNikAyah] = useState(alumni.nikAyah || '3507123456780010');
+  const [editPekerjaanAyah, setEditPekerjaanAyah] = useState(alumni.pekerjaanAyah || 'Wiraswasta / Petani');
+  const [editPendidikanAyah, setEditPendidikanAyah] = useState(alumni.pendidikanAyah || 'S1 Tarbiyah');
+
+  const [editNamaIbu, setEditNamaIbu] = useState(alumni.namaIbu || 'Hj. Siti Maryam');
+  const [editNikIbu, setEditNikIbu] = useState(alumni.nikIbu || '3507123456780020');
+  const [editPekerjaanIbu, setEditPekerjaanIbu] = useState(alumni.pekerjaanIbu || 'Ibu Rumah Tangga');
+  const [editPendidikanIbu, setEditPendidikanIbu] = useState(alumni.pendidikanIbu || 'Madrasah Aliyah');
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [showFullscreenPhoto, setShowFullscreenPhoto] = useState(false);
+  const [activeEditModal, setActiveEditModal] = useState<
+    'nama' | 'ttl' | 'saudara' | 'nik_kk' | 'alamat' | 'kontak' | 'pekerjaan' | 'bio' | 'tanggal_masuk' | 'tanggal_keluar' | 'ayah' | 'ibu' | 'username' | 'password' | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatTanggalIndonesia = (dateStr?: string) => {
+    if (!dateStr) return '14 Mei 1998';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTanggalSingkat = (dateStr?: string, fallbackYear?: string) => {
+    if (!dateStr && fallbackYear) return fallbackYear;
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return fallbackYear || dateStr;
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return fallbackYear || dateStr;
+    }
+  };
 
   useEffect(() => {
     setEditNik(alumni.nik);
-    setEditNoKk(alumni.noKk || '');
+    setEditNoKk(alumni.noKk || '3507123456780000');
     setEditName(alumni.name);
+    setEditTempatLahir(alumni.tempatLahir || 'Rembang');
+    setEditTanggalLahir(alumni.tanggalLahir || '1998-05-14');
+    setEditGender(alumni.gender || 'L');
+    setEditUrutanAnak(alumni.urutanAnak || 2);
+    setEditJumlahSaudara(alumni.jumlahSaudara || 5);
     setEditUsername(alumni.username || '');
     setEditPhone(alumni.phone);
     setEditEmail(alumni.email);
@@ -106,6 +366,21 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
     setEditBio(alumni.bio || '');
     setEditPhotoUrl(alumni.photoUrl);
     setEditShareContact(alumni.shareContact);
+    setEditShareFullAddress(alumni.shareFullAddress !== false);
+    setEditNism(alumni.nism || '131233170001');
+    setEditNisn(alumni.nisn || '0012345678');
+    setEditEntryYear(alumni.entryYear || '2014');
+    setEditGradYear(alumni.gradYear || '2020');
+    setEditEntryDate(alumni.entryDate || `${alumni.entryYear || '2014'}-07-15`);
+    setEditGradDate(alumni.gradDate || `${alumni.gradYear || '2020'}-06-20`);
+    setEditNamaAyah(alumni.namaAyah || 'H. Abdul Rasyid');
+    setEditNikAyah(alumni.nikAyah || '3507123456780010');
+    setEditPekerjaanAyah(alumni.pekerjaanAyah || 'Wiraswasta / Petani');
+    setEditPendidikanAyah(alumni.pendidikanAyah || 'S1 Tarbiyah');
+    setEditNamaIbu(alumni.namaIbu || 'Hj. Siti Maryam');
+    setEditNikIbu(alumni.nikIbu || '3507123456780020');
+    setEditPekerjaanIbu(alumni.pekerjaanIbu || 'Ibu Rumah Tangga');
+    setEditPendidikanIbu(alumni.pendidikanIbu || 'Madrasah Aliyah');
   }, [alumni]);
 
   // Handle uploading and scaling photo
@@ -163,10 +438,40 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
     triggerToast('Foto profil dihapus. Klik "Simpan Perubahan" untuk menyimpan.');
   };
 
-  // Directory Search State (Restricted Information)
+  // Directory Search State (Persis Kelola Data Alumni di Akun Admin)
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGradYear, setSelectedGradYear] = useState<string>('all');
   const [selectedAlumniDetail, setSelectedAlumniDetail] = useState<AlumniRecord | null>(null);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [filterEntryFrom, setFilterEntryFrom] = useState('');
+  const [filterEntryTo, setFilterEntryTo] = useState('');
+  const [filterGradFrom, setFilterGradFrom] = useState('');
+  const [filterGradTo, setFilterGradTo] = useState('');
+  const [filterProvince, setFilterProvince] = useState('');
+  const [filterCity, setFilterCity] = useState('');
+  const [filterKecamatan, setFilterKecamatan] = useState('');
+  const [filterDesa, setFilterDesa] = useState('');
+
+  const hasActiveFilters = Boolean(
+    filterEntryFrom ||
+    filterEntryTo ||
+    filterGradFrom ||
+    filterGradTo ||
+    filterProvince ||
+    filterCity ||
+    filterKecamatan ||
+    filterDesa
+  );
+
+  const handleResetFilters = () => {
+    setFilterEntryFrom('');
+    setFilterEntryTo('');
+    setFilterGradFrom('');
+    setFilterGradTo('');
+    setFilterProvince('');
+    setFilterCity('');
+    setFilterKecamatan('');
+    setFilterDesa('');
+  };
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -213,6 +518,7 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
       bio: editBio,
       photoUrl: editPhotoUrl || undefined,
       shareContact: editShareContact,
+      shareFullAddress: editShareFullAddress,
     };
 
     if (newPassword) {
@@ -239,16 +545,67 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
     }, 500);
   };
 
-  // Filter directory
+  // Filter list data alumni persis seperti halaman kelola data alumni admin
   const filteredAlumni = allAlumni.filter((item) => {
-    const matchQuery =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.occupation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.institution.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase().trim();
+    const matchSearch =
+      !q ||
+      item.name.toLowerCase().includes(q) ||
+      item.nik.includes(q) ||
+      item.nis.toLowerCase().includes(q) ||
+      (item.username && item.username.toLowerCase().includes(q)) ||
+      item.city.toLowerCase().includes(q) ||
+      (Boolean(item.kecamatan) && item.kecamatan!.toLowerCase().includes(q)) ||
+      (item.shareFullAddress !== false && Boolean(item.desa) && item.desa!.toLowerCase().includes(q)) ||
+      item.province.toLowerCase().includes(q) ||
+      item.occupation.toLowerCase().includes(q);
 
-    const matchYear = selectedGradYear === 'all' || item.gradYear === selectedGradYear;
-    return matchQuery && matchYear;
+    const entryNum = parseInt(item.entryYear, 10);
+    const gradNum = parseInt(item.gradYear, 10);
+
+    const matchEntryFrom = !filterEntryFrom || (!isNaN(entryNum) && entryNum >= parseInt(filterEntryFrom, 10));
+    const matchEntryTo = !filterEntryTo || (!isNaN(entryNum) && entryNum <= parseInt(filterEntryTo, 10));
+
+    const matchGradFrom = !filterGradFrom || (!isNaN(gradNum) && gradNum >= parseInt(filterGradFrom, 10));
+    const matchGradTo = !filterGradTo || (!isNaN(gradNum) && gradNum <= parseInt(filterGradTo, 10));
+
+    const normalizePlace = (val: string) => val.toLowerCase().replace(/^(kota|kabupaten|kab\.)\s+/i, '').trim();
+
+    const matchProvince = !filterProvince || 
+      item.province.toLowerCase().includes(filterProvince.toLowerCase()) ||
+      filterProvince.toLowerCase().includes(item.province.toLowerCase());
+
+    const matchCity = !filterCity || 
+      item.city.toLowerCase().includes(normalizePlace(filterCity)) ||
+      normalizePlace(filterCity).includes(item.city.toLowerCase()) ||
+      item.city.toLowerCase().includes(filterCity.toLowerCase());
+
+    const matchKecamatan = !filterKecamatan || 
+      (Boolean(item.kecamatan) && (
+        item.kecamatan!.toLowerCase().includes(filterKecamatan.toLowerCase()) ||
+        filterKecamatan.toLowerCase().includes(item.kecamatan!.toLowerCase())
+      ));
+
+    const matchDesa = !filterDesa 
+      ? true 
+      : item.shareFullAddress === false 
+        ? false 
+        : (Boolean(item.desa) && (
+            item.desa!.toLowerCase().includes(filterDesa.toLowerCase()) ||
+            filterDesa.toLowerCase().includes(item.desa!.toLowerCase())
+          ));
+
+    return (
+      matchSearch &&
+      matchEntryFrom &&
+      matchEntryTo &&
+      matchGradFrom &&
+      matchGradTo &&
+      matchProvince &&
+      matchCity &&
+      matchKecamatan &&
+      matchDesa
+    );
   });
 
   return (
@@ -261,42 +618,8 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
         </div>
       )}
 
-      {/* TOP HEADER */}
-      <div className="bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#0ea5e9] text-white pt-6 pb-4 px-5 shadow-md shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-white text-sky-700 font-extrabold flex items-center justify-center text-sm shadow-sm overflow-hidden shrink-0">
-              {alumni.photoUrl ? (
-                <img src={alumni.photoUrl} alt={alumni.name} className="w-full h-full object-cover" />
-              ) : (
-                alumni.name.charAt(0)
-              )}
-            </div>
-            <div>
-              <p className="text-[10px] text-sky-200 font-semibold uppercase tracking-wider">
-                Assalamu'alaikum,
-              </p>
-              <h2 className="font-display font-bold text-sm sm:text-base leading-tight truncate max-w-[190px]">
-                {alumni.name}
-              </h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/80 hover:bg-rose-600 text-white text-xs font-semibold transition-colors cursor-pointer"
-              title="Keluar dari Portal"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Keluar</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* BODY SCROLLABLE CONTENT */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      {/* BODY SCROLLABLE CONTENT (HEADER BIRU TELAH DIHAPUS DI SEMUA HALAMAN) */}
+      <div className={`flex-1 overflow-y-auto ${activeTab === 'profile' || activeTab === 'directory' ? 'p-0 bg-slate-50' : 'px-4 py-4 space-y-4'}`}>
         {/* ================= TAB 1: KTA DIGITAL & BERANDA ================= */}
         {activeTab === 'kta' && (
           <div className="space-y-4">
@@ -594,216 +917,160 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
           </div>
         )}
 
-        {/* ================= TAB 3: CARI ALUMNI (INFORMASI TERBATAS SESUAI PERMINTAAN) ================= */}
+        {/* ================= TAB 3: CARI ALUMNI (SAMA PERSIS KELOLA DATA ALUMNI ADMIN) ================= */}
         {activeTab === 'directory' && (
-          <div className="space-y-3">
-            {/* Header & Privacy Notice */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-              <h3 className="font-display font-bold text-sm text-slate-900">Direktori Alumni Terdaftar</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Temukan rekan santri sealmamater.
-              </p>
-              {/* Mandatory Privacy Badge */}
-              <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl flex items-start gap-2 text-[11px] text-sky-900">
-                <Lock className="w-3.5 h-3.5 text-sky-700 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Informasi Terbatas:</strong> Demi privasi rekan alumni, data sensitif seperti NIK, nomor induk detail, alamat KTP, dan rekam jejak santri <strong>tidak ditampilkan</strong> kepada sesama alumni.
-                </span>
-              </div>
-            </div>
-
-            {/* Search and Filter */}
-            <div className="space-y-2">
-              <div className="relative">
+          <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+            {/* Search & Filter Button - NOT inside a container */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Cari nama alumni, kota, atau profesi..."
+                  placeholder="Cari NIK, NIS, nama, atau domisili..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] shadow-xs"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-sky-600 focus:outline-none shadow-2xs"
                 />
               </div>
 
-              {/* Year filter pills */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
-                <button
-                  onClick={() => setSelectedGradYear('all')}
-                  className={`px-3 py-1 rounded-xl font-medium shrink-0 cursor-pointer ${
-                    selectedGradYear === 'all'
-                      ? 'bg-[#0284c7] text-white'
-                      : 'bg-white text-slate-600 border border-slate-200'
-                  }`}
-                >
-                  Semua Angkatan
-                </button>
-                {['2024', '2022', '2020', '2019', '2018', '2001'].map((yr) => (
-                  <button
-                    key={yr}
-                    onClick={() => setSelectedGradYear(yr)}
-                    className={`px-3 py-1 rounded-xl font-medium shrink-0 cursor-pointer ${
-                      selectedGradYear === yr
-                        ? 'bg-[#0284c7] text-white'
-                        : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    Angkatan {yr}
-                  </button>
-                ))}
-              </div>
+              {/* Tombol filter sejajar di samping kanan */}
+              <button
+                type="button"
+                onClick={() => setIsFilterSheetOpen(true)}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                  hasActiveFilters
+                    ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Buka Filter Data"
+              >
+                <Filter className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* List of Alumni (Restricted Data Only!) */}
-            <div className="space-y-2.5">
-              {filteredAlumni.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedAlumniDetail(item)}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:border-sky-300 transition-all cursor-pointer flex items-center justify-between"
+            {/* Filter Active Indicator & Quick Reset */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between text-[11px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100">
+                <span>Filter aktif diterapkan ({filteredAlumni.length} alumni)</span>
+                <button
+                  onClick={handleResetFilters}
+                  className="font-bold underline text-sky-700 hover:text-sky-900 cursor-pointer"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm shrink-0 border border-sky-200 overflow-hidden">
+                  Reset Filter
+                </button>
+              </div>
+            )}
+
+            {/* Daftar Kartu Alumni (Card View) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {filteredAlumni.map((item) => {
+                const addressText = item.shareFullAddress === false
+                  ? [item.kecamatan, item.city].filter(Boolean).join(', ') || item.city || item.province || 'Alamat disembunyikan'
+                  : [item.desa, item.kecamatan, item.city].filter(Boolean).join(', ') || item.province || 'Alamat belum diisi';
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedAlumniDetail(item)}
+                    className="bg-white rounded-2xl p-3.5 border border-slate-200/80 hover:border-sky-400 hover:shadow-md transition-all cursor-pointer flex items-center gap-3.5 group relative"
+                  >
+                    {/* Foto / Avatar */}
+                    <div className="relative shrink-0">
                       {item.photoUrl ? (
-                        <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
+                        <img
+                          src={item.photoUrl}
+                          alt={item.name}
+                          className="w-12 h-12 rounded-full object-cover border border-slate-100 ring-2 ring-slate-100 group-hover:ring-sky-200 transition-all"
+                        />
                       ) : (
-                        item.name.charAt(0)
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center font-display font-bold text-base shadow-2xs border border-white ring-2 ring-slate-100 group-hover:ring-sky-200 transition-all ${
+                            item.gender === 'P'
+                              ? 'bg-gradient-to-br from-rose-100 to-pink-200 text-rose-700'
+                              : 'bg-gradient-to-br from-sky-100 to-blue-200 text-sky-800'
+                          }`}
+                        >
+                          {item.name.charAt(0)}
+                        </div>
                       )}
                     </div>
-                    <div className="min-w-0">
+
+                    {/* Informasi: Nama & Alamat (Desa, Kecamatan, Kabupaten) */}
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                        <h4 className="font-display font-bold text-sm text-slate-900 group-hover:text-sky-700 transition-colors truncate">
                           {item.name}
                         </h4>
                         {item.id === alumni.id && (
-                          <span className="text-[9px] bg-sky-100 text-sky-700 px-1.5 py-0.2 rounded font-semibold">
+                          <span className="text-[9px] bg-sky-100 text-sky-700 px-1.5 py-0.2 rounded font-semibold shrink-0">
                             Anda
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                        <span className="font-semibold text-sky-700">Angkatan {item.gradYear}</span>
-                        <span>·</span>
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        <span>{item.city}</span>
-                      </p>
-                      <p className="text-[11px] text-slate-600 truncate flex items-center gap-1">
-                        <Briefcase className="w-3 h-3 text-slate-400" />
-                        <span>{item.occupation || 'Alumni'}</span>
+                      <p className="text-xs text-slate-500 capitalize truncate mt-0.5">
+                        {addressText}
                       </p>
                     </div>
+
+                    {/* Chevron Panah Detail */}
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 group-hover:translate-x-0.5 transition-all shrink-0 ml-auto" />
                   </div>
-
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </div>
-              ))}
-
-              {filteredAlumni.length === 0 && (
-                <div className="text-center py-8 bg-white rounded-2xl border border-slate-200">
-                  <p className="text-sm font-semibold text-slate-700">Tidak ada alumni yang cocok</p>
-                  <p className="text-xs text-slate-400 mt-1">Coba gunakan kata kunci pencarian lain</p>
-                </div>
-              )}
+                );
+              })}
             </div>
+
+            {filteredAlumni.length === 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 text-xs">
+                Tidak ditemukan data alumni dengan pencarian yang dipilih.
+              </div>
+            )}
           </div>
         )}
 
-        {/* ================= TAB 4: EDIT PROFIL MANDIRI & GANTI SANDI ================= */}
+        {/* ================= TAB 4: PROFILKU (LAYOUT PERSIS SCREENSHOT & BAHASA INDONESIA) ================= */}
         {activeTab === 'profile' && (
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* ================= 1. HERO TOP: LINGKARAN FOTO PROFIL & IDENTITAS ================= */}
-            <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs text-center relative overflow-hidden">
-              {/* Subtle gradient accent top */}
-              <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-sky-50 to-transparent pointer-events-none" />
+          <div className="bg-[#f0f2fb] min-h-full flex flex-col animate-in fade-in duration-150">
+            {/* HEADER ATAS: "Profilku" & FOTO PROFIL LINGKARAN DENGAN BADGE PENSIL */}
+            <div className="pt-6 pb-4 px-6 text-center flex flex-col items-center">
+              <h2 className="font-display font-bold text-lg text-slate-900 tracking-tight">
+                Profilku
+              </h2>
 
-              {/* Lingkaran Foto Profil - Klik untuk Fullscreen Bersih */}
-              <div className="relative inline-block mx-auto mb-3 mt-1">
+              <div className="relative inline-block mt-4 mb-2">
+                {/* Lingkaran Avatar */}
                 <button
                   type="button"
                   onClick={() => setShowFullscreenPhoto(true)}
-                  className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-white shadow-xl shadow-slate-300/60 overflow-hidden cursor-pointer group transition-all duration-200 hover:ring-sky-300 active:scale-95 focus:outline-none flex items-center justify-center bg-slate-100"
-                  title="Klik untuk melihat foto dalam layar penuh bersih"
+                  className="w-22 h-22 sm:w-24 sm:h-24 rounded-full ring-4 ring-white shadow-md overflow-hidden bg-slate-200 flex items-center justify-center cursor-pointer group transition-transform active:scale-95"
+                  title="Lihat foto profil penuh"
                 >
                   {editPhotoUrl ? (
                     <img
                       src={editPhotoUrl}
-                      alt={editName}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      alt={editName || alumni.name}
+                      className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center font-bold text-3xl shadow-inner">
-                      <span>{editName.charAt(0)}</span>
-                      <span className="text-[9px] font-normal tracking-wide text-sky-100 opacity-90 mt-0.5">Tambah Foto</span>
+                    <div className="w-full h-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold text-3xl flex items-center justify-center">
+                      {(editName || alumni.name).charAt(0)}
                     </div>
                   )}
-
-                  {/* Hover Overlay: "Layar Penuh" */}
-                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-medium gap-1">
-                    <Maximize2 className="w-4 h-4 text-white" />
-                    <span>Layar Penuh</span>
-                  </div>
                 </button>
 
-                {/* Floating Camera Button (Ganti Foto Shortcut) */}
+                {/* Badge Pensil Edit di Sudut Kanan Bawah */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     fileInputRef.current?.click();
                   }}
-                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer active:scale-90 transition-all"
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-white shadow-md border border-slate-200/80 text-slate-700 hover:text-sky-600 flex items-center justify-center cursor-pointer active:scale-90 transition-all ring-2 ring-white"
                   title="Ganti Foto Profil"
                 >
-                  <Camera className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Nama & Data Identitas */}
-              <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 leading-tight">
-                {editName || alumni.name}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1.5 font-medium flex-wrap">
-                <span>NIS: <span className="font-mono text-slate-700">{alumni.nis}</span></span>
-                <span>·</span>
-                <span>Angkatan {alumni.gradYear}</span>
-                <span>·</span>
-                <span className="text-sky-700 font-semibold">{alumni.jenjang}</span>
-              </p>
-
-              {/* Tombol Aksi: Lihat Penuh, Ganti Foto, Hapus Foto */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-3.5 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowFullscreenPhoto(true)}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Buka foto profil fullscreen bersih"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Lihat Foto</span>
+                  <Pencil className="w-4 h-4" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3.5 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-sky-200/60"
-                  title="Unggah foto profil baru dari galeri/kamera"
-                >
-                  <Camera className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Ganti Foto</span>
-                </button>
-
-                {editPhotoUrl && (
-                  <button
-                    type="button"
-                    onClick={handleDeletePhoto}
-                    className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200/60"
-                    title="Hapus foto profil saat ini"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Hapus</span>
-                  </button>
-                )}
-
-                {/* Hidden File Input */}
+                {/* Input file gambar tersembunyi */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -814,310 +1081,1160 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
               </div>
             </div>
 
-            {/* ================= 2. DATA POKOK SANTRI (DATABASE TERVERIFIKASI PONDOK) ================= */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Data Pokok Akademik Santri</span>
-                </span>
-                <span className="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-semibold">
-                  TERKUNCI
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3 rounded-xl border border-slate-200/60">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Nomor Induk Santri (NIS):</span>
-                  <span className="font-mono font-medium text-slate-800">{alumni.nis}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Tahun Kelulusan:</span>
-                  <span className="font-semibold text-slate-800">Angkatan {alumni.gradYear}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Jenjang / Marhalah:</span>
-                  <span className="font-semibold text-slate-800 truncate block">{alumni.jenjang}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Asrama Dulu:</span>
-                  <span className="font-semibold text-slate-800 truncate block">{alumni.asramaDulu || 'Komplek Utama'}</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 italic">
-                *Data akademik di atas bersumber dari pangkalan data pondok. Untuk perubahan silakan hubungi Admin Pondok.
-              </p>
-            </div>
-
-            {/* ================= 3. DATA PRIBADI & IDENTITAS KEPENDUDUKAN ================= */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
-              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                <User className="w-4 h-4 text-sky-600" />
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-                  Informasi Pribadi & Identitas
-                </h4>
-              </div>
-
-              {/* NIK & No. KK Editable Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <CreditCard className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Nomor Induk Kependudukan (NIK)</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">16 Digit</span>
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={16}
-                    value={editNik}
-                    onChange={(e) => setEditNik(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                    placeholder="3507xxxxxxxxxxxx"
-                    required
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    NIK digunakan untuk identitas dan alternatif login portal.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Nomor Kartu Keluarga (No. KK)</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">16 Digit</span>
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={16}
-                    value={editNoKk}
-                    onChange={(e) => setEditNoKk(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                    placeholder="Nomor KK (16 digit)"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Opsional untuk kelengkapan administrasi data alumni.
-                  </p>
-                </div>
-              </div>
-
+            {/* WADAH KARTU PUTIH MELENGKUNG PERSIS SCREENSHOT */}
+            <div className="bg-white rounded-t-[36px] shadow-sm px-6 pt-5 pb-24 space-y-6 flex-1 border-t border-slate-200/40">
+              {/* SEGMEN 1: INFORMASI PRIBADI */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap & Gelar</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                  placeholder="Nama lengkap Anda beserta gelar"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Username Akun (Alternatif Login)
-                </label>
-                <div className="relative">
-                  <UserCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Contoh: mulianingsih_20"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Username dapat digunakan untuk login sebagai pengganti NIK/NIS.
+                <p className="text-xs font-semibold text-slate-400 text-center tracking-wide mb-3">
+                  Informasi Pribadi
                 </p>
-              </div>
 
-              {/* Nomor WhatsApp + Tombol Izin Tampilkan ke Alumni Lain Tepat di Bawahnya */}
-              <div className="space-y-2">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-400" />
-                    <span>Nomor WhatsApp</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                    placeholder="Contoh: 08123456789"
-                  />
-                </div>
-
-                {/* ================= TOMBOL IZIN DITAMPILKAN KE ALUMNI LAIN (DI BAWAH INPUT NO WA) ================= */}
-                <div className="p-3 rounded-2xl bg-sky-50/80 border border-sky-200/80 flex items-center justify-between gap-3 shadow-2xs">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                      <span>Izin Tampilkan Nomor WA ke Sesama Alumni</span>
-                    </p>
-                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                      Izinkan nomor WhatsApp ini dapat dilihat oleh alumni lain di halaman direktori untuk silaturahmi.
-                    </p>
+                <div className="divide-y divide-slate-100">
+                  {/* 1. Nama Lengkap */}
+                  <div
+                    onClick={() => setActiveEditModal('nama')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Nama Lengkap</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editName || alumni.name}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={editShareContact}
-                      onChange={(e) => setEditShareContact(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 shadow-inner"></div>
-                  </label>
+
+                  {/* 2. Tempat, Tanggal Lahir (TTL) */}
+                  <div
+                    onClick={() => setActiveEditModal('ttl')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Calendar className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Tempat, Tanggal Lahir (TTL)</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editTempatLahir || 'Rembang'}, {formatTanggalIndonesia(editTanggalLahir)}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 3. Gender & Saudara */}
+                  <div
+                    onClick={() => setActiveEditModal('saudara')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Users className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Gender & Saudara</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editGender === 'L' ? 'Laki-laki' : 'Perempuan'}, anak ke-{editUrutanAnak || 2} dari {editJumlahSaudara || 5} saudara
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 4. NIK & Nomor KK */}
+                  <div
+                    onClick={() => setActiveEditModal('nik_kk')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <CreditCard className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">NIK & No. KK</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editNik || alumni.nik} · {editNoKk || '3507123456780000'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 5. Alamat */}
+                  <div
+                    onClick={() => setActiveEditModal('alamat')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Alamat & Titik Domisili</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {!editShareFullAddress
+                            ? [editKecamatan || alumni.kecamatan, editCity || alumni.city].filter(Boolean).join(', ') || 'Kecamatan & Kota/Kabupaten'
+                            : [editAlamatLengkap || alumni.alamatLengkap, editDesa || alumni.desa, editKecamatan || alumni.kecamatan, editCity || alumni.city, editProvince || alumni.province].filter(Boolean).join(', ') || 'Atur alamat & titik domisili'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 6. Kontak */}
+                  <div
+                    onClick={() => setActiveEditModal('kontak')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Phone className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Kontak WhatsApp & Email</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editPhone || alumni.phone} · {editEmail || alumni.email}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 7. Pekerjaan */}
+                  <div
+                    onClick={() => setActiveEditModal('pekerjaan')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Briefcase className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Pekerjaan & Instansi</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editOccupation || alumni.occupation || 'Alumni Pesantren'}
+                          {editInstitution || alumni.institution ? ` · ${editInstitution || alumni.institution}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 8. Bio */}
+                  <div
+                    onClick={() => setActiveEditModal('bio')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Bio</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editBio || alumni.bio || 'Tulis bio atau catatan singkat...'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
               </div>
 
+              {/* SEGMEN 2: RIWAYAT PENDIDIKAN */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                  <Mail className="w-3 h-3 text-slate-400" />
-                  <span>Alamat Email</span>
-                </label>
-                <input
-                  type="email"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                  placeholder="email@contoh.com"
-                />
-              </div>
-            </div>
+                <p className="text-xs font-semibold text-slate-400 text-center tracking-wide mb-3">
+                  Riwayat Pendidikan
+                </p>
 
-            {/* ================= 4. DOMISILI & TITIK LOKASI PETA ================= */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
-              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                <MapPin className="w-4 h-4 text-rose-500" />
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-                  Domisili & Titik Lokasi Terkini
-                </h4>
-              </div>
+                <div className="divide-y divide-slate-100">
+                  {/* 1. NIS (Terkunci / Warna Mati / Tidak Bereaksi Saat Diklik) */}
+                  <div className="flex items-center justify-between py-3.5 -mx-3 px-3 rounded-2xl cursor-default select-none opacity-45">
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <GraduationCap className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">NIS (Nomor Induk Santri)</p>
+                        <p className="text-sm font-semibold font-mono text-slate-500 truncate mt-0.5">
+                          {alumni.nis}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-              <WilayahAddressFilter
-                province={editProvince}
-                city={editCity}
-                kecamatan={editKecamatan}
-                desa={editDesa}
-                alamatLengkap={editAlamatLengkap}
-                coordinates={editCoordinates}
-                onChange={(vals) => {
-                  setEditProvince(vals.province);
-                  setEditCity(vals.city);
-                  setEditKecamatan(vals.kecamatan);
-                  setEditDesa(vals.desa);
-                  if (vals.alamatLengkap !== undefined) setEditAlamatLengkap(vals.alamatLengkap);
-                  if (vals.coordinates !== undefined) setEditCoordinates(vals.coordinates);
-                }}
-              />
-            </div>
+                  {/* 2. NISM (Terkunci / Warna Mati / Tidak Bereaksi Saat Diklik) */}
+                  <div className="flex items-center justify-between py-3.5 -mx-3 px-3 rounded-2xl cursor-default select-none opacity-45">
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">NISM (Nomor Induk Santri Madrasah)</p>
+                        <p className="text-sm font-semibold font-mono text-slate-500 truncate mt-0.5">
+                          {editNism || alumni.nism || '131233170001'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-            {/* ================= 5. PROFESI & BIO ALUMNI ================= */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
-              <div className="flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                <Briefcase className="w-4 h-4 text-sky-600" />
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-                  Profesi & Aktivitas Alumni
-                </h4>
-              </div>
+                  {/* 3. NISN (Terkunci / Warna Mati / Tidak Bereaksi Saat Diklik) */}
+                  <div className="flex items-center justify-between py-3.5 -mx-3 px-3 rounded-2xl cursor-default select-none opacity-45">
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <FileCheck className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">NISN (Nomor Induk Siswa Nasional)</p>
+                        <p className="text-sm font-semibold font-mono text-slate-500 truncate mt-0.5">
+                          {editNisn || alumni.nisn || '0012345678'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Profesi / Pekerjaan</label>
-                  <input
-                    type="text"
-                    value={editOccupation}
-                    onChange={(e) => setEditOccupation(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                    placeholder="Contoh: Guru / Wiraswasta / Dokter"
-                  />
+                  {/* 4. Tanggal Masuk */}
+                  <div
+                    onClick={() => {
+                      setTempEntryDate(editEntryDate || `${editEntryYear || '2014'}-07-15`);
+                      setActiveEditModal('tanggal_masuk');
+                    }}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5 text-sky-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Tanggal Masuk</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {formatTanggalSingkat(editEntryDate, editEntryYear) || 'Atur tanggal masuk'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 5. Tanggal Keluar */}
+                  <div
+                    onClick={() => {
+                      setTempGradDate(editGradDate || `${editGradYear || '2020'}-06-20`);
+                      setActiveEditModal('tanggal_keluar');
+                    }}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5 text-sky-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Tanggal Keluar</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {formatTanggalSingkat(editGradDate, editGradYear) || 'Atur tanggal keluar'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Instansi / Perusahaan</label>
-                  <input
-                    type="text"
-                    value={editInstitution}
-                    onChange={(e) => setEditInstitution(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                    placeholder="Nama tempat kerja / usaha"
-                  />
-                </div>
               </div>
 
+              {/* SEGMEN 3: INFORMASI ORANG TUA */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Bio / Pesan Alumni</label>
-                <textarea
-                  rows={2}
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="Ceritakan singkat aktivitas atau pesan silaturahmi Anda..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all resize-none"
-                />
+                <p className="text-xs font-semibold text-slate-400 text-center tracking-wide mb-3">
+                  Informasi Orang Tua
+                </p>
+
+                <div className="divide-y divide-slate-100">
+                  {/* 1. Data Ayah */}
+                  <div
+                    onClick={() => setActiveEditModal('ayah')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Data Ayah Kandung</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editNamaAyah || alumni.namaAyah || 'H. Abdul Rasyid'} · {editPekerjaanAyah || alumni.pekerjaanAyah || 'Wiraswasta'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 2. Data Ibu (Icon User sama seperti Ayah) */}
+                  <div
+                    onClick={() => setActiveEditModal('ibu')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400 font-medium leading-tight">Data Ibu Kandung</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate mt-0.5">
+                          {editNamaIbu || alumni.namaIbu || 'Hj. Siti Maryam'} · {editPekerjaanIbu || alumni.pekerjaanIbu || 'Ibu Rumah Tangga'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </div>
+              </div>
+
+              {/* SEGMEN 4: PENGATURAN AKUN */}
+              <div>
+                <p className="text-xs font-semibold text-slate-400 text-center tracking-wide mb-3">
+                  Pengaturan Akun
+                </p>
+
+                <div className="divide-y divide-slate-100">
+                  {/* 1. Ganti Username */}
+                  <div
+                    onClick={() => {
+                      setNewUsernameInput('');
+                      setUsernameStatus('idle');
+                      setActiveEditModal('username');
+                    }}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <AtSign className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">Ganti Username</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                          {editUsername || alumni.username ? `@${editUsername || alumni.username}` : 'Belum diatur'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 2. Ganti Kata Sandi */}
+                  <div
+                    onClick={() => setActiveEditModal('password')}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-slate-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <KeyRound className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">Ganti Kata Sandi</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                          {alumni.isPasswordChanged ? 'Sudah pernah diubah' : 'Atur atau perbarui kata sandi akun'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {/* 3. Toggle Izinkan Alamat Lengkap Ditampilkan (BERSIH TANPA KETERANGAN APAPUN) */}
+                  <div className="flex items-center justify-between py-3.5 -mx-3 px-3 rounded-2xl">
+                    <div className="flex items-center gap-4 min-w-0 pr-3">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5 text-sky-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">Izinkan Alamat Lengkap Ditampilkan</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !editShareFullAddress;
+                        setEditShareFullAddress(nextVal);
+                        onUpdateProfile({ shareFullAddress: nextVal });
+                      }}
+                      className={`w-12 h-7 rounded-full p-0.5 transition-colors relative cursor-pointer shrink-0 ${
+                        editShareFullAddress ? 'bg-[#2563eb]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${
+                          editShareFullAddress ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* 4. Toggle Izinkan Nomor WA Ditampilkan */}
+                  <div className="flex items-center justify-between py-3.5 -mx-3 px-3 rounded-2xl">
+                    <div className="flex items-center gap-4 min-w-0 pr-3">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <MessageCircle className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">Izinkan Nomor WA Ditampilkan</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                          Tampilkan nomor WhatsApp pada pencarian sesama alumni
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !editShareContact;
+                        setEditShareContact(nextVal);
+                        onUpdateProfile({ shareContact: nextVal });
+                        triggerToast(nextVal ? 'Izin nomor WhatsApp aktif' : 'Izin nomor WhatsApp dinonaktifkan');
+                      }}
+                      className={`w-12 h-7 rounded-full p-0.5 transition-colors relative cursor-pointer shrink-0 ${
+                        editShareContact ? 'bg-[#2563eb]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${
+                          editShareContact ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* 5. Keluar dari Akun (Logout) */}
+                  <div
+                    onClick={onLogout}
+                    className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-rose-50/70 -mx-3 px-3 rounded-2xl transition-colors group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0 pr-2">
+                      <div className="w-6 flex items-center justify-center shrink-0">
+                        <LogOut className="w-5 h-5 text-rose-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-rose-600 leading-tight">Keluar dari Akun</p>
+                        <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Akhiri sesi login di perangkat ini</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* ================= 6. KEAMANAN & KATA SANDI ================= */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3.5 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Ubah Kata Sandi (Dari Default 1234)</span>
-                </h4>
-                {alumni.isPasswordChanged ? (
-                  <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                    Sandi Sudah Diperbarui
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60">
-                    Masih Sandi Default 1234
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-slate-600 mb-1 font-medium">Kata Sandi Baru</label>
-                  <input
-                    type="password"
-                    placeholder="Kosongkan jika tidak ingin mengubah sandi"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
-                  />
+            {/* ================= EDIT MODAL: NAMA LENGKAP ================= */}
+            {activeEditModal === 'nama' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Nama Lengkap</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Nama lengkap..."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ name: editName }); setActiveEditModal(null); triggerToast('Nama berhasil diperbarui'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
                 </div>
-                {newPassword && (
-                  <div>
-                    <label className="block text-slate-600 mb-1 font-medium">Ulangi Kata Sandi Baru</label>
-                    <input
-                      type="password"
-                      placeholder="Konfirmasi kata sandi baru"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:bg-white transition-all"
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: TEMPAT TANGGAL LAHIR ================= */}
+            {activeEditModal === 'ttl' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Tempat & Tanggal Lahir</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tempat Lahir (Kota/Kabupaten)</label>
+                      <input type="text" value={editTempatLahir} onChange={(e) => setEditTempatLahir(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs" placeholder="Contoh: Rembang" />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tanggal Lahir</label>
+                      <input type="date" value={editTanggalLahir} onChange={(e) => setEditTanggalLahir(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ tempatLahir: editTempatLahir, tanggalLahir: editTanggalLahir }); setActiveEditModal(null); triggerToast('TTL berhasil diperbarui'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: GENDER & SAUDARA ================= */}
+            {activeEditModal === 'saudara' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Gender & Saudara</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditGender('L')}
+                          className={`py-2 rounded-xl font-semibold border text-xs cursor-pointer transition-all ${
+                            editGender === 'L' ? 'bg-sky-50 border-sky-600 text-sky-700 ring-2 ring-sky-500/20' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          Laki-laki
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditGender('P')}
+                          className={`py-2 rounded-xl font-semibold border text-xs cursor-pointer transition-all ${
+                            editGender === 'P' ? 'bg-rose-50 border-rose-600 text-rose-700 ring-2 ring-rose-500/20' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          Perempuan
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Anak Ke-</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={25}
+                          value={editUrutanAnak}
+                          onChange={(e) => setEditUrutanAnak(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Jumlah Saudara</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={25}
+                          value={editJumlahSaudara}
+                          onChange={(e) => setEditJumlahSaudara(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ gender: editGender, urutanAnak: editUrutanAnak, jumlahSaudara: editJumlahSaudara }); setActiveEditModal(null); triggerToast('Status keluarga berhasil diperbarui'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: NIK & NOMOR KK ================= */}
+            {activeEditModal === 'nik_kk' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah NIK & Nomor Kartu Keluarga</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nomor Induk Kependudukan (NIK)</label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={editNik}
+                        onChange={(e) => setEditNik(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        placeholder="16 digit NIK KTP"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nomor Kartu Keluarga (No. KK)</label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={editNoKk}
+                        onChange={(e) => setEditNoKk(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        placeholder="16 digit Nomor KK"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ nik: editNik, noKk: editNoKk }); setActiveEditModal(null); triggerToast('NIK & No. KK berhasil disimpan'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: KONTAK ================= */}
+            {activeEditModal === 'kontak' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Kontak WhatsApp & Email</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nomor WhatsApp / HP</label>
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        placeholder="08xxxxxxxxxx"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Alamat Email</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="nama@email.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ phone: editPhone, email: editEmail }); setActiveEditModal(null); triggerToast('Kontak berhasil diperbarui'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: PEKERJAAN ================= */}
+            {activeEditModal === 'pekerjaan' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Pekerjaan & Instansi</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Profesi / Pekerjaan</label>
+                      <input
+                        type="text"
+                        value={editOccupation}
+                        onChange={(e) => setEditOccupation(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Guru / Wiraswasta / Pegawai"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Instansi / Lembaga / Usaha</label>
+                      <input
+                        type="text"
+                        value={editInstitution}
+                        onChange={(e) => setEditInstitution(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Nama tempat bekerja atau usaha"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ occupation: editOccupation, institution: editInstitution }); setActiveEditModal(null); triggerToast('Pekerjaan berhasil diperbarui'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: BIO ================= */}
+            {activeEditModal === 'bio' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Bio</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Bio / Catatan Singkat</label>
+                      <textarea
+                        rows={3}
+                        value={editBio}
+                        onChange={(e) => setEditBio(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Tulis pesan atau bio singkat Anda..."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer hover:bg-slate-50">Batal</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateProfile({ bio: editBio });
+                        setActiveEditModal(null);
+                        triggerToast('Bio berhasil diperbarui');
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer"
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: TANGGAL MASUK (DATE WHEEL PICKER BERSIH) ================= */}
+            {activeEditModal === 'tanggal_masuk' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Tanggal Masuk</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  
+                  {/* Date Wheel Picker tanpa keterangan apapun */}
+                  <DateWheelPicker
+                    value={tempEntryDate}
+                    onChange={(newVal) => setTempEntryDate(newVal)}
+                  />
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer hover:bg-slate-50">Batal</button>
+                    <button
+                      type="button"
+                      disabled={tempEntryDate === editEntryDate}
+                      onClick={() => {
+                        if (tempEntryDate === editEntryDate) return;
+                        setEditEntryDate(tempEntryDate);
+                        const yr = tempEntryDate.split('-')[0] || editEntryYear;
+                        setEditEntryYear(yr);
+                        onUpdateProfile({ entryDate: tempEntryDate, entryYear: yr });
+                        setActiveEditModal(null);
+                        triggerToast('Tanggal masuk berhasil diperbarui');
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-white font-bold text-xs transition-colors ${
+                        tempEntryDate === editEntryDate
+                          ? 'bg-blue-300 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                      }`}
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: TANGGAL KELUAR (DATE WHEEL PICKER BERSIH) ================= */}
+            {activeEditModal === 'tanggal_keluar' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Tanggal Keluar</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  
+                  {/* Date Wheel Picker tanpa keterangan apapun */}
+                  <DateWheelPicker
+                    value={tempGradDate}
+                    onChange={(newVal) => setTempGradDate(newVal)}
+                  />
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer hover:bg-slate-50">Batal</button>
+                    <button
+                      type="button"
+                      disabled={tempGradDate === editGradDate}
+                      onClick={() => {
+                        if (tempGradDate === editGradDate) return;
+                        setEditGradDate(tempGradDate);
+                        const yr = tempGradDate.split('-')[0] || editGradYear;
+                        setEditGradYear(yr);
+                        onUpdateProfile({ gradDate: tempGradDate, gradYear: yr });
+                        setActiveEditModal(null);
+                        triggerToast('Tanggal keluar berhasil diperbarui');
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-white font-bold text-xs transition-colors ${
+                        tempGradDate === editGradDate
+                          ? 'bg-blue-300 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                      }`}
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= MODAL INFO: NIS, NISM, NISN (TERKUNCI) ================= */}
+            {activeEditModal === 'pendidikan_info' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Data Induk Registrasi Santri</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-2.5 text-xs">
+                    <div className="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-medium">NIS Pesantren:</span>
+                        <span className="font-mono font-bold text-slate-800">{alumni.nis}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-medium">NISM Madrasah:</span>
+                        <span className="font-mono font-bold text-slate-800">{editNism || alumni.nism || '131233170001'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-medium">NISN Nasional:</span>
+                        <span className="font-mono font-bold text-slate-800">{editNisn || alumni.nisn || '0012345678'}</span>
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-2xl text-[11px] text-amber-800 flex items-start gap-2">
+                      <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>Nomor registrasi santri diterbitkan resmi oleh Sekretariat Pondok Pesantren At-taroqqy dan Kemenag RI sehingga tidak dapat diubah sembarangan oleh akun mandiri.</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setActiveEditModal(null)} className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer">Tutup</button>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: INFORMASI AYAH ================= */}
+            {activeEditModal === 'ayah' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Informasi Ayah Kandung</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap Ayah</label>
+                      <input
+                        type="text"
+                        value={editNamaAyah}
+                        onChange={(e) => setEditNamaAyah(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Nama lengkap ayah"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">NIK Ayah (16 digit)</label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={editNikAyah}
+                        onChange={(e) => setEditNikAyah(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        placeholder="NIK KTP Ayah"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Pekerjaan Ayah</label>
+                      <input
+                        type="text"
+                        value={editPekerjaanAyah}
+                        onChange={(e) => setEditPekerjaanAyah(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Petani / Guru / Wiraswasta"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Pendidikan Terakhir Ayah</label>
+                      <input
+                        type="text"
+                        value={editPendidikanAyah}
+                        onChange={(e) => setEditPendidikanAyah(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="SMA / S1 / Pesantren"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ namaAyah: editNamaAyah, nikAyah: editNikAyah, pekerjaanAyah: editPekerjaanAyah, pendidikanAyah: editPendidikanAyah }); setActiveEditModal(null); triggerToast('Data ayah berhasil disimpan'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: INFORMASI IBU ================= */}
+            {activeEditModal === 'ibu' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Informasi Ibu Kandung</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap Ibu</label>
+                      <input
+                        type="text"
+                        value={editNamaIbu}
+                        onChange={(e) => setEditNamaIbu(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Nama lengkap ibu"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">NIK Ibu (16 digit)</label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={editNikIbu}
+                        onChange={(e) => setEditNikIbu(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        placeholder="NIK KTP Ibu"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Pekerjaan Ibu</label>
+                      <input
+                        type="text"
+                        value={editPekerjaanIbu}
+                        onChange={(e) => setEditPekerjaanIbu(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Ibu Rumah Tangga / Guru / Wiraswasta"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Pendidikan Terakhir Ibu</label>
+                      <input
+                        type="text"
+                        value={editPendidikanIbu}
+                        onChange={(e) => setEditPendidikanIbu(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="SMA / S1 / Pesantren"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ namaIbu: editNamaIbu, nikIbu: editNikIbu, pekerjaanIbu: editPekerjaanIbu, pendidikanIbu: editPendidikanIbu }); setActiveEditModal(null); triggerToast('Data ibu berhasil disimpan'); }} className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: USERNAME ================= */}
+            {activeEditModal === 'username' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ganti Username</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewUsernameInput('');
+                        setUsernameStatus('idle');
+                        setActiveEditModal(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3.5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Username Saat Ini</label>
+                      <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 select-all border border-slate-200/60">
+                        {editUsername || alumni.username ? `@${editUsername || alumni.username}` : 'Belum diatur'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Username Baru</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-slate-400 font-bold">@</span>
+                        <input
+                          type="text"
+                          value={newUsernameInput}
+                          onChange={(e) => handleUsernameInputChange(e.target.value)}
+                          className="w-full pl-7 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                          placeholder="username_baru"
+                        />
+                        <div className="absolute right-3 top-2.5 flex items-center justify-center">
+                          {isCheckingUsername && (
+                            <Loader2 className="w-4 h-4 text-sky-600 animate-spin" />
+                          )}
+                          {!isCheckingUsername && usernameStatus === 'available' && (
+                            <div className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
+                          {!isCheckingUsername && usernameStatus === 'taken' && (
+                            <div className="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center">
+                              <X className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {usernameStatus === 'taken' && (
+                        <p className="text-[11px] text-rose-600 mt-1 font-medium">Username sudah digunakan</p>
+                      )}
+                      {usernameStatus === 'available' && (
+                        <p className="text-[11px] text-emerald-600 mt-1 font-medium">Username tersedia</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewUsernameInput('');
+                        setUsernameStatus('idle');
+                        setActiveEditModal(null);
+                      }}
+                      className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer hover:bg-slate-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isCheckingUsername || usernameStatus === 'taken' || !newUsernameInput.trim()}
+                      onClick={() => {
+                        if (!newUsernameInput.trim()) return;
+                        if (usernameStatus === 'taken') {
+                          triggerToast('Username sudah dipakai');
+                          return;
+                        }
+                        setEditUsername(newUsernameInput.trim());
+                        onUpdateProfile({ username: newUsernameInput.trim() });
+                        setActiveEditModal(null);
+                        setNewUsernameInput('');
+                        setUsernameStatus('idle');
+                        triggerToast('Username berhasil diperbarui');
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-white font-bold text-xs transition-colors ${
+                        isCheckingUsername || usernameStatus === 'taken' || !newUsernameInput.trim()
+                          ? 'bg-blue-300 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                      }`}
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= EDIT MODAL: ALAMAT & DOMISILI ================= */}
+            {activeEditModal === 'alamat' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-lg max-h-[88vh] overflow-y-auto space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Alamat & Titik Domisili</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="text-xs">
+                    <WilayahAddressFilter
+                      province={editProvince}
+                      city={editCity}
+                      kecamatan={editKecamatan}
+                      desa={editDesa}
+                      alamatLengkap={editAlamatLengkap}
+                      coordinates={editCoordinates}
+                      onChange={(vals) => {
+                        setEditProvince(vals.province);
+                        setEditCity(vals.city);
+                        setEditKecamatan(vals.kecamatan);
+                        setEditDesa(vals.desa);
+                        if (vals.alamatLengkap !== undefined) setEditAlamatLengkap(vals.alamatLengkap);
+                        if (vals.coordinates !== undefined) setEditCoordinates(vals.coordinates);
+                      }}
                     />
                   </div>
-                )}
+                  <div className="flex gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer">Batal</button>
+                    <button type="button" onClick={() => { onUpdateProfile({ province: editProvince, city: editCity, kecamatan: editKecamatan, desa: editDesa, alamatLengkap: editAlamatLengkap, coordinates: editCoordinates || undefined }); setActiveEditModal(null); triggerToast('Alamat & titik domisili berhasil disimpan'); }} className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer">Simpan Alamat</button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* ================= 7. TOMBOL SIMPAN PERUBAHAN ================= */}
-            <button
-              type="submit"
-              disabled={isSavingProfile}
-              className="w-full py-3.5 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold rounded-2xl shadow-lg shadow-sky-600/25 text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 transition-all active:scale-[0.99]"
-            >
-              {isSavingProfile ? (
-                <span>Menyimpan Perubahan...</span>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Perubahan Profil</span>
-                </>
-              )}
-            </button>
-          </form>
+            {/* ================= EDIT MODAL: GANTI KATA SANDI ================= */}
+            {activeEditModal === 'password' && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in" onClick={() => setActiveEditModal(null)}>
+                <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl border border-slate-100" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <h3 className="font-bold text-sm text-slate-900">Ubah Kata Sandi Akun</h3>
+                    <button type="button" onClick={() => setActiveEditModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-4 h-4" /></button>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Kata Sandi Baru</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Minimal 4 karakter"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Ulangi Kata Sandi Baru</label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs"
+                        placeholder="Ketik ulang kata sandi baru"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        setActiveEditModal(null);
+                      }}
+                      className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newPassword || newPassword.length < 4) {
+                          triggerToast('Kata sandi minimal 4 karakter');
+                          return;
+                        }
+                        if (newPassword !== confirmPassword) {
+                          triggerToast('Konfirmasi kata sandi tidak cocok!');
+                          return;
+                        }
+                        onUpdateProfile({ password: newPassword, isPasswordChanged: true });
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        setActiveEditModal(null);
+                        triggerToast('Kata sandi akun berhasil diubah');
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer"
+                    >
+                      Simpan Sandi
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -1159,7 +2276,7 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
             activeTab === 'profile' ? 'text-[#0284c7] font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Edit3 className="w-5 h-5" />
+          <User className="w-5 h-5" />
           <span className="text-[10px]">Profil</span>
         </button>
       </div>
@@ -1213,82 +2330,135 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
         </div>
       )}
 
-      {/* MODAL DETAIL ALUMNI TAMPILAN TERBATAS (RESTRICTED DETAIL MODAL) */}
+      {/* MODAL DETAIL ALUMNI (SAMA PERSIS SEPERTI DI AKUN ADMIN) */}
       {selectedAlumniDetail && (
+        <AlumniDetailAdminModal
+          isOpen={Boolean(selectedAlumniDetail)}
+          alumni={selectedAlumniDetail}
+          onClose={() => setSelectedAlumniDetail(null)}
+          onResetPassword={(id) => triggerToast(`Reset password untuk ID ${id} diproses`)}
+          onSave={(id, updated) => {
+            if (id === alumni.id) {
+              onUpdateProfile(updated);
+            }
+            setSelectedAlumniDetail((prev) => (prev ? { ...prev, ...updated } : null));
+            triggerToast('Data alumni berhasil diperbarui');
+          }}
+        />
+      )}
+
+      {/* BOTTOM SHEET FILTER (SAMA PERSIS DENGAN KELOLA DATA ALUMNI ADMIN) */}
+      {isFilterSheetOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setSelectedAlumniDetail(null)}
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex flex-col justify-end animate-in fade-in"
+          onClick={() => setIsFilterSheetOpen(false)}
         >
           <div 
-            className="w-full max-w-sm bg-white rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-100"
+            className="w-full max-w-lg mx-auto bg-white rounded-t-3xl shadow-2xl border-t border-slate-200 flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start pb-2 border-b border-slate-100">
-              <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider bg-sky-50 px-2 py-0.5 rounded">
-                Profil Rekan Alumni
-              </span>
-              <button onClick={() => setSelectedAlumniDetail(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+            {/* Handle Drag Bar */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-3 mb-1" />
+
+            {/* Sheet Header */}
+            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100 relative z-10 bg-white">
+              <h3 className="font-display font-bold text-sm text-slate-900">
+                Filter Data Alumni
+              </h3>
+              <button
+                onClick={() => setIsFilterSheetOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="text-center space-y-1.5">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-600 to-sky-400 text-white font-bold text-xl flex items-center justify-center mx-auto shadow-md overflow-hidden ring-2 ring-white">
-                {selectedAlumniDetail.photoUrl ? (
-                  <img src={selectedAlumniDetail.photoUrl} alt={selectedAlumniDetail.name} className="w-full h-full object-cover" />
-                ) : (
-                  selectedAlumniDetail.name.charAt(0)
-                )}
+            {/* Form Fields */}
+            <div className="p-5 space-y-4 text-xs relative z-30 overflow-visible">
+              {/* Rentang Tanggal Masuk */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  Rentang Tanggal Masuk (Tahun)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Dari (contoh: 2012)"
+                    value={filterEntryFrom}
+                    onChange={(e) => setFilterEntryFrom(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Sampai (contoh: 2020)"
+                    value={filterEntryTo}
+                    onChange={(e) => setFilterEntryTo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:outline-none"
+                  />
+                </div>
               </div>
-              <h4 className="font-bold text-base text-slate-900">{selectedAlumniDetail.name}</h4>
-              <p className="text-xs text-sky-700 font-semibold">
-                Alumni Angkatan {selectedAlumniDetail.gradYear}
-              </p>
-              {selectedAlumniDetail.bio && (
-                <p className="text-xs text-slate-600 italic px-3 py-1 bg-slate-50 rounded-xl">
-                  "{selectedAlumniDetail.bio}"
-                </p>
-              )}
+
+              {/* Rentang Tanggal Keluar */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  Rentang Tanggal Keluar (Tahun)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Dari (contoh: 2016)"
+                    value={filterGradFrom}
+                    onChange={(e) => setFilterGradFrom(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Sampai (contoh: 2024)"
+                    value={filterGradTo}
+                    onChange={(e) => setFilterGradTo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Alamat Berdasarkan Wilayah */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700">
+                  Alamat Santri & Alumni
+                </label>
+                <WilayahAddressFilter
+                  province={filterProvince}
+                  city={filterCity}
+                  kecamatan={filterKecamatan}
+                  desa={filterDesa}
+                  showLocationTag={false}
+                  showAlamatLengkap={false}
+                  onChange={({ province, city, kecamatan, desa }) => {
+                    setFilterProvince(province);
+                    setFilterCity(city);
+                    setFilterKecamatan(kecamatan);
+                    setFilterDesa(desa);
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Domisili:</span>
-                <span className="font-medium text-slate-900">{selectedAlumniDetail.city}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Pekerjaan:</span>
-                <span className="font-medium text-slate-900">{selectedAlumniDetail.occupation}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Instansi:</span>
-                <span className="font-medium text-slate-900">{selectedAlumniDetail.institution || '-'}</span>
-              </div>
-            </div>
-
-            {/* Restricted notice banner */}
-            <div className="p-2 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-800 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Data privat (NIK, Alamat KTP, dan Catatan Induk) tidak dibuka ke publik.</span>
-            </div>
-
-            {/* Contact button if enabled */}
-            <div className="pt-1">
-              {selectedAlumniDetail.shareContact ? (
-                <a
-                  href={`https://wa.me/62${selectedAlumniDetail.phone.replace(/^0/, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>Hubungi via WhatsApp</span>
-                </a>
-              ) : (
-                <p className="text-center text-[11px] text-slate-400 italic">
-                  Alumni ini memilih untuk tidak menampilkan nomor WhatsApp publik.
-                </p>
-              )}
+            {/* Actions */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterSheetOpen(false)}
+                className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer text-center shadow-xs"
+              >
+                Terapkan Filter
+              </button>
             </div>
           </div>
         </div>
@@ -1360,104 +2530,22 @@ export const AlumniView: React.FC<AlumniViewProps> = ({
         </div>
       )}
 
-      {/* ================= MODAL FULLSCREEN BERSIH: FOTO PROFIL ================= */}
-      {showFullscreenPhoto &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[999999] bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200 select-none pointer-events-auto"
-            onClick={() => setShowFullscreenPhoto(false)}
-          >
-            {/* Top Bar: Title & Close Button */}
-            <div
-              className="flex items-center justify-between text-white pb-3 border-b border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="min-w-0">
-                <h3 className="font-display font-bold text-sm sm:text-base text-white truncate">
-                  Foto Profil
-                </h3>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {editName || alumni.name} · NIS {alumni.nis}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowFullscreenPhoto(false)}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                title="Tutup Layar Penuh"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Center Display: Clean Fullscreen Photo or Clean Large Avatar */}
-            <div
-              className="flex-1 flex items-center justify-center my-4 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {editPhotoUrl ? (
-                <div className="relative max-h-[72vh] max-w-[92vw] flex items-center justify-center animate-in zoom-in-95 duration-200">
-                  <img
-                    src={editPhotoUrl}
-                    alt={editName || alumni.name}
-                    className="max-h-[72vh] max-w-[92vw] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10"
-                  />
-                </div>
-              ) : (
-                <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
-                  <div className="w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-400 text-white font-bold text-6xl sm:text-7xl flex items-center justify-center mx-auto shadow-2xl ring-4 ring-white/20">
-                    {(editName || alumni.name).charAt(0)}
-                  </div>
-                  <p className="text-sm text-slate-300 font-medium">
-                    Belum ada foto profil kustom yang dipasang
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Action Bar: Ganti Foto, Hapus Foto, Tutup */}
-            <div
-              className="flex flex-wrap items-center justify-center gap-2.5 pt-3 border-t border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  fileInputRef.current?.click();
-                }}
-                className="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-sky-600/30 transition-all active:scale-95 cursor-pointer"
-                title="Pilih foto baru dari perangkat"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Ganti Foto</span>
-              </button>
-
-              {editPhotoUrl && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleDeletePhoto();
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-semibold text-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
-                  title="Hapus foto profil"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Hapus Foto</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShowFullscreenPhoto(false)}
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-                <span>Tutup</span>
-              </button>
-            </div>
-          </div>,
-          document.body
-        )}
+      {/* ================= MODAL FULLSCREEN BERSIH: FOTO PROFIL (PINCH TO ZOOM & PAN) ================= */}
+      {showFullscreenPhoto && (
+        <FullscreenPhotoViewerModal
+          photoUrl={editPhotoUrl}
+          name={editName || alumni.name}
+          onClose={() => setShowFullscreenPhoto(false)}
+          onDelete={
+            editPhotoUrl
+              ? () => {
+                  handleDeletePhoto();
+                  setShowFullscreenPhoto(false);
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 };

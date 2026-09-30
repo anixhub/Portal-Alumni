@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   MapPin, 
@@ -19,10 +19,17 @@ import {
   Share2, 
   ExternalLink,
   Camera,
-  BookOpen
+  BookOpen,
+  Maximize2
 } from 'lucide-react';
+import L from 'leaflet';
 import { AlumniRecord } from '../../types';
 import { WilayahAddressFilter } from '../common/WilayahAddressFilter';
+import { 
+  FullscreenLocationMapModal, 
+  LocationCoordinates, 
+  DetectedAddressHint 
+} from '../common/FullscreenLocationMapModal';
 
 interface AlumniDetailAdminModalProps {
   isOpen: boolean;
@@ -42,6 +49,11 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
+  const previewMapRef = useRef<HTMLDivElement>(null);
+  const miniMapInstanceRef = useRef<L.Map | null>(null);
+  const miniMarkerRef = useRef<L.Marker | null>(null);
 
   // Form State for Editing
   const [formData, setFormData] = useState({
@@ -96,6 +108,85 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
     }
   }, [alumni]);
 
+  // Mini preview map effect for view mode
+  useEffect(() => {
+    if (!isOpen || isEditing || isMapModalOpen || !alumni) {
+      if (miniMapInstanceRef.current) {
+        miniMapInstanceRef.current.remove();
+        miniMapInstanceRef.current = null;
+        miniMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const targetLat = alumni.coordinates?.lat || -7.9826;
+    const targetLng = alumni.coordinates?.lng || 112.6308;
+
+    const timer = setTimeout(() => {
+      if (!previewMapRef.current) return;
+
+      if (!miniMapInstanceRef.current) {
+        const miniMap = L.map(previewMapRef.current, {
+          center: [targetLat, targetLng],
+          zoom: 15,
+          zoomControl: false,
+          attributionControl: false,
+          dragging: false,
+          touchZoom: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+        });
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+        }).addTo(miniMap);
+
+        const pinIcon = L.divIcon({
+          className: 'mini-preview-pin !border-0 !bg-transparent',
+          html: `
+            <div style="width: 32px; height: 40px; position: relative;">
+              <div style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 14px; height: 5px; background: rgba(0,0,0,0.35); border-radius: 50%; filter: blur(1.5px);"></div>
+              <div style="position: absolute; top: 0; left: 0; width: 32px; height: 32px; background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(185, 28, 28, 0.45); border: 2.5px solid #ffffff;">
+                <div style="width: 10px; height: 10px; background: #ffffff; border-radius: 50%;"></div>
+              </div>
+            </div>
+          `,
+          iconSize: [32, 40],
+          iconAnchor: [16, 40],
+        });
+
+        const marker = L.marker([targetLat, targetLng], { icon: pinIcon }).addTo(miniMap);
+
+        miniMapInstanceRef.current = miniMap;
+        miniMarkerRef.current = marker;
+      } else {
+        miniMapInstanceRef.current.setView([targetLat, targetLng], 15, { animate: false });
+        if (miniMarkerRef.current) {
+          miniMarkerRef.current.setLatLng([targetLat, targetLng]);
+        }
+      }
+
+      miniMapInstanceRef.current?.invalidateSize();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isOpen, isEditing, isMapModalOpen, alumni?.coordinates?.lat, alumni?.coordinates?.lng]);
+
+  // Clean up preview map on unmount
+  useEffect(() => {
+    return () => {
+      if (miniMapInstanceRef.current) {
+        miniMapInstanceRef.current.remove();
+        miniMapInstanceRef.current = null;
+        miniMarkerRef.current = null;
+      }
+    };
+  }, []);
+
   if (!isOpen || !alumni) return null;
 
   // Clean WhatsApp link
@@ -123,15 +214,26 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
     setIsEditing(false);
   };
 
+  const handleLocationPicked = (coords: LocationCoordinates, hint?: DetectedAddressHint) => {
+    const updatedCoordinates = coords;
+    const updatedAlamat = !alumni.alamatLengkap && hint?.displayName ? hint.displayName : alumni.alamatLengkap;
+    if (onSave) {
+      onSave(alumni.id, {
+        coordinates: updatedCoordinates,
+        ...(updatedAlamat ? { alamatLengkap: updatedAlamat } : {})
+      });
+    }
+  };
+
   const handleShareProfile = () => {
     if (navigator.share) {
       navigator.share({
         title: `Biodata Alumni - ${alumni.name}`,
-        text: `Profil Alumni At-taroqqy: ${alumni.name} (Angkatan ${alumni.gradYear})`,
+        text: `Profil Alumni At-taroqqy: ${alumni.name} (Boyong ${alumni.gradYear})`,
         url: window.location.href,
       }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(`${alumni.name} - Angkatan ${alumni.gradYear} (${alumni.phone})`);
+      navigator.clipboard.writeText(`${alumni.name} - Boyong ${alumni.gradYear} (${alumni.phone})`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -216,8 +318,8 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
               {/* PROFILE HEADER CARD (OVERLAPPING BANNER) */}
               <div className="px-4 sm:px-6 relative -mt-14 sm:-mt-16">
                 <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm relative">
-                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                    {/* AVATAR */}
+                  <div className="flex items-center justify-between">
+                    {/* AVATAR DENGAN STATUS AKTIF (TOMBOL WA & RESET SANDI DI BAWAH FOTO DIHAPUS) */}
                     <div className="relative">
                       {alumni.photoUrl ? (
                         <img 
@@ -236,30 +338,6 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                       )}
                       <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" title="Status Aktif" />
                     </div>
-
-                    {/* QUICK ACTION BUTTONS */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {waNumber && (
-                        <a
-                          href={`https://wa.me/${waNumber}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs shadow-emerald-600/20 transition-all cursor-pointer"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => onResetPassword(alumni.id)}
-                        className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors border border-slate-200/80 cursor-pointer"
-                        title="Reset Kata Sandi ke 1234"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Reset Sandi</span>
-                      </button>
-                    </div>
                   </div>
 
                   {/* IDENTITAS NAMA & BADGES */}
@@ -268,7 +346,21 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                       {alumni.name}
                     </h1>
 
-                    <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-1 flex items-center gap-1.5 flex-wrap">
+                    {/* PILL TAGS: LABEL TAHUN BOYONG & TAG LOKASI SEBELAH KANANNYA (TANPA KETERANGAN SEKOLAH SEPERTI MAK) */}
+                    <div className="flex items-center gap-2 mt-2.5 flex-wrap text-xs">
+                      <span className="px-3 py-1 rounded-full bg-sky-50 text-sky-700 font-bold border border-sky-100/80">
+                        Boyong {alumni.gradYear}
+                      </span>
+                      {alumni.city && (
+                        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium flex items-center gap-1 border border-slate-200/60">
+                          <MapPin className="w-3 h-3 text-rose-500" />
+                          <span className="capitalize">{alumni.city}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* PROFESI DI BAWAH KETERANGAN BOYONG DAN LOKASI */}
+                    <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-2.5 flex items-center gap-1.5 flex-wrap">
                       <Briefcase className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                       <span>{alumni.occupation || 'Alumni Pesantren'}</span>
                       {alumni.institution && (
@@ -278,22 +370,6 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                         </>
                       )}
                     </p>
-
-                    {/* PILL TAGS */}
-                    <div className="flex items-center gap-2 mt-3 flex-wrap text-xs">
-                      <span className="px-3 py-1 rounded-full bg-sky-50 text-sky-700 font-bold border border-sky-100/80">
-                        Angkatan {alumni.gradYear}
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 font-medium border border-emerald-100/80">
-                        {alumni.jenjang}
-                      </span>
-                      {alumni.city && (
-                        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-500" />
-                          <span className="capitalize">{alumni.city}</span>
-                        </span>
-                      )}
-                    </div>
 
                     {/* BIO / KUTIPAN */}
                     {alumni.bio && (
@@ -309,35 +385,111 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
 
               {/* DETAIL SECTIONS (MEDSOS CARDS) */}
               <div className="px-4 sm:px-6 mt-4 space-y-3.5 text-xs">
-                {/* 1. KARTU DOMISILI & ALAMAT */}
-                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3">
-                  <div className="flex items-center gap-2 text-slate-800 font-bold border-b border-slate-100 pb-2">
-                    <MapPin className="w-4 h-4 text-sky-600" />
-                    <span className="text-xs uppercase tracking-wider text-slate-700">Alamat & Domisili</span>
+                {/* 1. KARTU DOMISILI & TITIK LOKASI TERKINI (SAMA PERSIS DENGAN AKUN ALUMNI) */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <MapPin className="w-4 h-4 text-rose-500" />
+                      <span className="text-xs uppercase tracking-wider text-slate-700 font-bold">
+                        Domisili & Titik Lokasi Terkini
+                      </span>
+                    </div>
+                    {alumni.shareFullAddress !== false && (
+                      <button
+                        type="button"
+                        onClick={() => setIsMapModalOpen(true)}
+                        className="text-[11px] text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Buka Peta Layar Penuh"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span>Buka Peta</span>
+                      </button>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                    <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Desa / Kelurahan</span>
-                      <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.desa || '-'}</p>
+                  {alumni.shareFullAddress === false ? (
+                    <div className="py-2 space-y-3">
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kecamatan</span>
+                          <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.kecamatan || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kota / Kabupaten</span>
+                          <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.city || '-'}</p>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 italic">
+                        Alamat lengkap dan titik peta disembunyikan oleh pengguna.
+                      </p>
                     </div>
-                    <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kecamatan</span>
-                      <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.kecamatan || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kabupaten / Kota</span>
-                      <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.city || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Provinsi</span>
-                      <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.province || '-'}</p>
-                    </div>
-                    <div className="sm:col-span-2 pt-2 border-t border-slate-50">
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Alamat Lengkap</span>
-                      <p className="font-medium text-slate-700 text-xs mt-0.5 capitalize leading-relaxed">{fullAddress}</p>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* KOTAK PREVIEW PETA PERSIS SEPERTI DI AKUN ALUMNI */}
+                      <div
+                        onClick={() => setIsMapModalOpen(true)}
+                        className="group relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden border border-slate-300 shadow-xs hover:shadow-md hover:border-sky-500 transition-all cursor-pointer bg-slate-100"
+                        title="Klik untuk membuka peta layar penuh dan melihat rute / memindah titik"
+                      >
+                        {/* Layer Peta Preview Leaflet */}
+                        <div
+                          ref={previewMapRef}
+                          className="w-full h-full pointer-events-none"
+                        />
+
+                        {/* Tag Lokasi */}
+                        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200/90 text-xs font-bold text-slate-800 pointer-events-none">
+                          <MapPin className="w-4 h-4 text-rose-600 fill-rose-600 shrink-0 animate-pulse" />
+                          <span>Tag Lokasi</span>
+                          {alumni.coordinates && (
+                            <span className="text-[10px] font-mono text-slate-500 font-normal ml-0.5">
+                              ({alumni.coordinates.lat.toFixed(4)}, {alumni.coordinates.lng.toFixed(4)})
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Indikator Layar Penuh */}
+                        <div className="absolute top-2.5 right-2.5 z-20 px-2.5 py-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow-md border border-white/10 flex items-center gap-1 text-[11px] font-medium backdrop-blur-xs transition-colors">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span className="text-[10px]">Layar Penuh</span>
+                        </div>
+                      </div>
+
+                      {/* DETAIL ALAMAT (SAMA PERSIS DENGAN FORMAT AKUN ALUMNI) */}
+                      <div className="space-y-3 pt-1">
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 block uppercase">
+                            Alamat Lengkap (Jalan, RT/RW, Dusun, No. Rumah)
+                          </span>
+                          <p className="font-medium text-slate-800 text-xs mt-0.5 capitalize leading-relaxed">
+                            {alumni.alamatLengkap || fullAddress || '-'}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5 pt-2 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kecamatan</span>
+                            <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.kecamatan || '-'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Desa / Kelurahan</span>
+                            <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.desa || '-'}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5 pt-2 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Kota / Kabupaten</span>
+                            <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.city || '-'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-slate-400 block uppercase">Provinsi</span>
+                            <p className="font-semibold text-slate-800 text-xs mt-0.5 capitalize">{alumni.province || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* 2. KARTU RIWAYAT SANTRI & PONDOK */}
@@ -361,8 +513,8 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                       <p className="font-semibold text-slate-800 text-xs mt-0.5">{alumni.entryYear || '-'}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Tahun Lulus</span>
-                      <p className="font-semibold text-slate-800 text-xs mt-0.5">Angkatan {alumni.gradYear}</p>
+                      <span className="text-[10px] font-semibold text-slate-400 block uppercase">Tahun Boyong / Kelulusan</span>
+                      <p className="font-semibold text-slate-800 text-xs mt-0.5">Boyong {alumni.gradYear}</p>
                     </div>
                     <div className="col-span-2">
                       <span className="text-[10px] font-semibold text-slate-400 block uppercase">Jenjang / Marhalah</span>
@@ -498,7 +650,7 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Tahun Lulus (Angkatan)</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Tahun Boyong / Kelulusan</label>
                     <input
                       type="text"
                       required
@@ -649,6 +801,19 @@ export const AlumniDetailAdminModal: React.FC<AlumniDetailAdminModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* FULLSCREEN LOCATION MAP MODAL (PERSIS SEPERTI DI AKUN ALUMNI) */}
+      {isMapModalOpen && (
+        <FullscreenLocationMapModal
+          isOpen={isMapModalOpen}
+          initialCoordinates={alumni.coordinates || { lat: -7.9826, lng: 112.6308 }}
+          initialZoom={15}
+          currentAddressLabel={[alumni.alamatLengkap, alumni.desa, alumni.kecamatan, alumni.city, alumni.province].filter(Boolean).join(', ')}
+          onClose={() => setIsMapModalOpen(false)}
+          onSelectLocation={handleLocationPicked}
+        />
+      )}
     </div>
   );
 };
+

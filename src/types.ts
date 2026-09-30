@@ -8,6 +8,8 @@ export interface AlumniRecord {
   gender: 'L' | 'P';
   gradYear: string;
   entryYear: string;
+  gradDate?: string;
+  entryDate?: string;
   jenjang: string;
   asramaDulu: string;
   email: string;
@@ -27,7 +29,23 @@ export interface AlumniRecord {
   bio?: string;
   photoUrl?: string;
   shareContact: boolean;
+  shareFullAddress?: boolean;
   status: 'alumni' | 'santri_aktif';
+  // Informasi Tambahan
+  tempatLahir?: string;
+  tanggalLahir?: string;
+  urutanAnak?: number;
+  jumlahSaudara?: number;
+  nism?: string;
+  nisn?: string;
+  namaAyah?: string;
+  nikAyah?: string;
+  pekerjaanAyah?: string;
+  pendidikanAyah?: string;
+  namaIbu?: string;
+  nikIbu?: string;
+  pekerjaanIbu?: string;
+  pendidikanIbu?: string;
 }
 
 export interface AdminUser {

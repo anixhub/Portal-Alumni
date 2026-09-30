@@ -516,65 +516,200 @@ export const WilayahAddressFilter: React.FC<WilayahAddressFilterProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="space-y-3 text-xs relative z-40">
-      {/* 1. KOTAK PREVIEW PETA & TAG LOKASI (PALING ATAS) */}
-      {showLocationTag && !isMapModalOpen && (
-        <div
-          onClick={() => {
-            if (miniMapInstanceRef.current) {
-              setCachedCenter(miniMapInstanceRef.current.getCenter());
-              setCachedZoom(miniMapInstanceRef.current.getZoom());
-            }
-            setIsMapModalOpen(true);
-          }}
-          className="group relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden border border-slate-300 shadow-xs hover:shadow-md hover:border-sky-500 transition-all cursor-pointer bg-slate-100"
-          title="Klik untuk membuka peta layar penuh dan memindah titik"
-        >
-          {/* Layer Peta Preview Leaflet */}
-          <div
-            ref={previewMapRef}
-            className="w-full h-full pointer-events-none"
-          />
-
-          {/* Tag Lokasi */}
-          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200/90 text-xs font-bold text-slate-800 pointer-events-none">
-            <MapPin className="w-4 h-4 text-rose-600 fill-rose-600 shrink-0 animate-pulse" />
-            <span>Tag Lokasi</span>
-            {coordinates && (
-              <span className="text-[10px] font-mono text-slate-500 font-normal ml-0.5">
-                ({coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)})
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 2. ALAMAT LENGKAP (DI ATAS DESA DAN KECAMATAN) */}
-      {showAlamatLengkap && (
-        <div className="space-y-1">
-          <label className="block text-[11px] font-bold text-slate-700">
-            Alamat Lengkap (Jalan, RT/RW, Dusun, No. Rumah)
+    <div ref={containerRef} className="space-y-3.5 text-xs relative z-40">
+      {/* 1. KOLOM PROVINSI DAN KABUPATEN SEJAJAR (PALING ATAS) */}
+      <div className={`grid grid-cols-2 gap-2.5 relative transition-all ${activeDropdown === 'province' || activeDropdown === 'city' ? 'z-50' : 'z-30'}`}>
+        {/* PROVINSI */}
+        <div className={`relative ${activeDropdown === 'province' ? 'z-50' : 'z-20'}`}>
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+            Provinsi
           </label>
-          <textarea
-            rows={2}
-            placeholder="Contoh: Jl. Pesantren No. 45, RT 03 / RW 02, Dusun Krajan"
-            value={alamatLengkap}
-            onChange={(e) => {
-              onChange({
-                province,
-                city,
-                kecamatan,
-                desa,
-                alamatLengkap: e.target.value,
-                coordinates: coordinates || undefined,
-              });
-            }}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors shadow-2xs"
-          />
-        </div>
-      )}
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              placeholder="Ketik provinsi..."
+              value={province}
+              onChange={(e) => handleProvinceInputChange(e.target.value)}
+              onFocus={() => setActiveDropdown('province')}
+              onClick={() => setActiveDropdown('province')}
+              className={`w-full pl-3 pr-7 py-2 bg-slate-50 border rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none transition-colors ${
+                activeDropdown === 'province'
+                  ? 'border-sky-500 ring-2 ring-sky-100 bg-white'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            />
+            <div className="absolute right-2 flex items-center gap-1">
+              {loadingProv ? (
+                <Loader2 className="w-3.5 h-3.5 text-sky-600 animate-spin" />
+              ) : province ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedProvId('');
+                    setSelectedRegId('');
+                    setSelectedDistId('');
+                    setRegenciesList([]);
+                    setDistrictsList([]);
+                    setVillagesList([]);
+                    onChange({ 
+                      province: '', 
+                      city: '', 
+                      kecamatan: '', 
+                      desa: '',
+                      alamatLengkap,
+                      coordinates: coordinates || undefined
+                    });
+                  }}
+                  className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              ) : null}
+            </div>
+          </div>
 
-      {/* 3. KOLOM DESA DAN KECAMATAN SEJAJAR */}
+          {/* DROPDOWN MENU PROVINSI (DI ATAS INPUT BOX AGAR TIDAK TERTIMBUN KEYBOARD) */}
+          {activeDropdown === 'province' && (
+            <div className="absolute left-0 right-0 bottom-full mb-1 z-[150] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
+              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                <span>Pilih Provinsi</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                {loadingProv && (
+                  <div className="px-3 py-4 text-center text-xs text-sky-600 flex items-center justify-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Memuat daftar provinsi...</span>
+                  </div>
+                )}
+                {!loadingProv && filteredProvinces.map((item) => {
+                  const nameFormatted = formatWilayahName(item.name);
+                  const isSelected = province.toLowerCase() === nameFormatted.toLowerCase();
+                  return (
+                    <div
+                      key={item.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectProvince(item);
+                      }}
+                      className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                        isSelected ? 'bg-sky-50 text-sky-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <span className="truncate">{nameFormatted}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 ml-1" />}
+                    </div>
+                  );
+                })}
+                {!loadingProv && filteredProvinces.length === 0 && (
+                  <div className="px-3 py-3 text-center text-xs text-slate-400">
+                    Tidak ada provinsi yang cocok
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* KOTA / KABUPATEN */}
+        <div className={`relative ${activeDropdown === 'city' ? 'z-50' : 'z-20'}`}>
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+            Kota / Kabupaten
+          </label>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              placeholder={!selectedProvId ? 'Pilih provinsi dulu' : 'Ketik kota/kabupaten...'}
+              disabled={!selectedProvId}
+              value={city}
+              onChange={(e) => handleCityInputChange(e.target.value)}
+              onFocus={() => {
+                if (selectedProvId) setActiveDropdown('city');
+              }}
+              onClick={() => {
+                if (selectedProvId) setActiveDropdown('city');
+              }}
+              className={`w-full pl-3 pr-7 py-2 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none transition-colors ${
+                !selectedProvId
+                  ? 'bg-slate-100 border border-slate-200/60 cursor-not-allowed opacity-60'
+                  : activeDropdown === 'city'
+                  ? 'border-sky-500 ring-2 ring-sky-100 bg-white'
+                  : 'bg-slate-50 border border-slate-200 hover:border-slate-300'
+              }`}
+            />
+            <div className="absolute right-2 flex items-center gap-1">
+              {loadingReg ? (
+                <Loader2 className="w-3.5 h-3.5 text-sky-600 animate-spin" />
+              ) : city ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRegId('');
+                    setSelectedDistId('');
+                    setDistrictsList([]);
+                    setVillagesList([]);
+                    onChange({ 
+                      province, 
+                      city: '', 
+                      kecamatan: '', 
+                      desa: '',
+                      alamatLengkap,
+                      coordinates: coordinates || undefined
+                    });
+                  }}
+                  className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* DROPDOWN MENU KOTA / KABUPATEN (DI ATAS INPUT BOX AGAR TIDAK TERTIMBUN KEYBOARD) */}
+          {activeDropdown === 'city' && selectedProvId && (
+            <div className="absolute left-0 right-0 bottom-full mb-1 z-[150] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
+              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                <span>Pilih Kota / Kabupaten</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                {loadingReg && (
+                  <div className="px-3 py-4 text-center text-xs text-sky-600 flex items-center justify-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Memuat daftar kota/kabupaten...</span>
+                  </div>
+                )}
+                {!loadingReg && filteredRegencies.map((item) => {
+                  const nameFormatted = formatWilayahName(item.name);
+                  const isSelected = city.toLowerCase() === nameFormatted.toLowerCase();
+                  return (
+                    <div
+                      key={item.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectCity(item);
+                      }}
+                      className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                        isSelected ? 'bg-sky-50 text-sky-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <span className="truncate">{nameFormatted}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 ml-1" />}
+                    </div>
+                  );
+                })}
+                {!loadingReg && filteredRegencies.length === 0 && (
+                  <div className="px-3 py-3 text-center text-xs text-slate-400">
+                    Tidak ada kota/kabupaten yang cocok
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. KOLOM KECAMATAN DAN DESA SEJAJAR */}
       <div className={`grid grid-cols-2 gap-2.5 relative transition-all ${activeDropdown === 'kecamatan' || activeDropdown === 'desa' ? 'z-50' : 'z-20'}`}>
         {/* KECAMATAN */}
         <div className={`relative ${activeDropdown === 'kecamatan' ? 'z-50' : 'z-10'}`}>
@@ -628,12 +763,12 @@ export const WilayahAddressFilter: React.FC<WilayahAddressFilterProps> = ({
             </div>
           </div>
 
-          {/* DROPDOWN MENU KECAMATAN */}
+          {/* DROPDOWN MENU KECAMATAN (DI ATAS INPUT BOX AGAR TIDAK TERTIMBUN KEYBOARD) */}
           {activeDropdown === 'kecamatan' && selectedRegId && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-[100] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
+            <div className="absolute left-0 right-0 bottom-full mb-1 z-[150] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
               <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
                 <span>Pilih Kecamatan</span>
-                <ChevronUp className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3 h-3 text-slate-400" />
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
                 {loadingDist && (
@@ -721,12 +856,12 @@ export const WilayahAddressFilter: React.FC<WilayahAddressFilterProps> = ({
             </div>
           </div>
 
-          {/* DROPDOWN MENU DESA */}
+          {/* DROPDOWN MENU DESA (DI ATAS INPUT BOX AGAR TIDAK TERTIMBUN KEYBOARD) */}
           {activeDropdown === 'desa' && selectedDistId && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-[100] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
+            <div className="absolute left-0 right-0 bottom-full mb-1 z-[150] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
               <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
                 <span>Pilih Desa / Kelurahan</span>
-                <ChevronUp className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3 h-3 text-slate-400" />
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
                 {loadingVill && (
@@ -765,197 +900,62 @@ export const WilayahAddressFilter: React.FC<WilayahAddressFilterProps> = ({
         </div>
       </div>
 
-      {/* 4. KOLOM KABUPATEN DAN PROVINSI SEJAJAR */}
-      <div className={`grid grid-cols-2 gap-2.5 relative transition-all ${activeDropdown === 'province' || activeDropdown === 'city' ? 'z-50' : 'z-10'}`}>
-        {/* KOTA / KABUPATEN */}
-        <div className={`relative ${activeDropdown === 'city' ? 'z-50' : 'z-10'}`}>
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-            Kota / Kabupaten
+      {/* 3. ALAMAT LENGKAP */}
+      {showAlamatLengkap && (
+        <div className="space-y-1 relative z-10">
+          <label className="block text-[11px] font-bold text-slate-700">
+            Alamat Lengkap (Jalan, RT/RW, Dusun, No. Rumah)
           </label>
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              placeholder={!selectedProvId ? 'Pilih provinsi dulu' : 'Ketik kota/kabupaten...'}
-              disabled={!selectedProvId}
-              value={city}
-              onChange={(e) => handleCityInputChange(e.target.value)}
-              onFocus={() => {
-                if (selectedProvId) setActiveDropdown('city');
-              }}
-              onClick={() => {
-                if (selectedProvId) setActiveDropdown('city');
-              }}
-              className={`w-full pl-3 pr-7 py-2 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none transition-colors ${
-                !selectedProvId
-                  ? 'bg-slate-100 border border-slate-200/60 cursor-not-allowed opacity-60'
-                  : activeDropdown === 'city'
-                  ? 'border-sky-500 ring-2 ring-sky-100 bg-white'
-                  : 'bg-slate-50 border border-slate-200 hover:border-slate-300'
-              }`}
-            />
-            <div className="absolute right-2 flex items-center gap-1">
-              {loadingReg ? (
-                <Loader2 className="w-3.5 h-3.5 text-sky-600 animate-spin" />
-              ) : city ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRegId('');
-                    setSelectedDistId('');
-                    setDistrictsList([]);
-                    setVillagesList([]);
-                    onChange({ 
-                      province, 
-                      city: '', 
-                      kecamatan: '', 
-                      desa: '',
-                      alamatLengkap,
-                      coordinates: coordinates || undefined
-                    });
-                  }}
-                  className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* DROPDOWN MENU KOTA / KABUPATEN */}
-          {activeDropdown === 'city' && selectedProvId && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-[100] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
-              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                <span>Pilih Kota / Kabupaten</span>
-                <ChevronUp className="w-3 h-3 text-slate-400" />
-              </div>
-              <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
-                {loadingReg && (
-                  <div className="px-3 py-4 text-center text-xs text-sky-600 flex items-center justify-center gap-1.5">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Memuat daftar kota/kabupaten...</span>
-                  </div>
-                )}
-                {!loadingReg && filteredRegencies.map((item) => {
-                  const nameFormatted = formatWilayahName(item.name);
-                  const isSelected = city.toLowerCase() === nameFormatted.toLowerCase();
-                  return (
-                    <div
-                      key={item.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleSelectCity(item);
-                      }}
-                      className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between transition-colors ${
-                        isSelected ? 'bg-sky-50 text-sky-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <span className="truncate">{nameFormatted}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 ml-1" />}
-                    </div>
-                  );
-                })}
-                {!loadingReg && filteredRegencies.length === 0 && (
-                  <div className="px-3 py-3 text-center text-xs text-slate-400">
-                    Tidak ada kota/kabupaten yang cocok
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <textarea
+            rows={2}
+            placeholder="Contoh: Jl. Pesantren No. 45, RT 03 / RW 02, Dusun Krajan"
+            value={alamatLengkap}
+            onChange={(e) => {
+              onChange({
+                province,
+                city,
+                kecamatan,
+                desa,
+                alamatLengkap: e.target.value,
+                coordinates: coordinates || undefined,
+              });
+            }}
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors shadow-2xs"
+          />
         </div>
+      )}
 
-        {/* PROVINSI */}
-        <div className={`relative ${activeDropdown === 'province' ? 'z-50' : 'z-10'}`}>
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-            Provinsi
-          </label>
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              placeholder="Ketik provinsi..."
-              value={province}
-              onChange={(e) => handleProvinceInputChange(e.target.value)}
-              onFocus={() => setActiveDropdown('province')}
-              onClick={() => setActiveDropdown('province')}
-              className={`w-full pl-3 pr-7 py-2 bg-slate-50 border rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none transition-colors ${
-                activeDropdown === 'province'
-                  ? 'border-sky-500 ring-2 ring-sky-100 bg-white'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            />
-            <div className="absolute right-2 flex items-center gap-1">
-              {loadingProv ? (
-                <Loader2 className="w-3.5 h-3.5 text-sky-600 animate-spin" />
-              ) : province ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedProvId('');
-                    setSelectedRegId('');
-                    setSelectedDistId('');
-                    setRegenciesList([]);
-                    setDistrictsList([]);
-                    setVillagesList([]);
-                    onChange({ 
-                      province: '', 
-                      city: '', 
-                      kecamatan: '', 
-                      desa: '',
-                      alamatLengkap,
-                      coordinates: coordinates || undefined
-                    });
-                  }}
-                  className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              ) : null}
-            </div>
+      {/* 4. KOTAK PREVIEW PETA & TAG LOKASI (PALING BAWAH) */}
+      {showLocationTag && !isMapModalOpen && (
+        <div
+          onClick={() => {
+            if (miniMapInstanceRef.current) {
+              setCachedCenter(miniMapInstanceRef.current.getCenter());
+              setCachedZoom(miniMapInstanceRef.current.getZoom());
+            }
+            setIsMapModalOpen(true);
+          }}
+          className="group relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden border border-slate-300 shadow-xs hover:shadow-md hover:border-sky-500 transition-all cursor-pointer bg-slate-100 z-0"
+          title="Klik untuk membuka peta layar penuh dan memindah titik"
+        >
+          {/* Layer Peta Preview Leaflet */}
+          <div
+            ref={previewMapRef}
+            className="w-full h-full pointer-events-none"
+          />
+
+          {/* Tag Lokasi */}
+          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200/90 text-xs font-bold text-slate-800 pointer-events-none">
+            <MapPin className="w-4 h-4 text-rose-600 fill-rose-600 shrink-0 animate-pulse" />
+            <span>Tag Lokasi</span>
+            {coordinates && (
+              <span className="text-[10px] font-mono text-slate-500 font-normal ml-0.5">
+                ({coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)})
+              </span>
+            )}
           </div>
-
-          {/* DROPDOWN MENU PROVINSI */}
-          {activeDropdown === 'province' && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-[100] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in ring-1 ring-black/5">
-              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                <span>Pilih Provinsi</span>
-                <ChevronUp className="w-3 h-3 text-slate-400" />
-              </div>
-              <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
-                {loadingProv && (
-                  <div className="px-3 py-4 text-center text-xs text-sky-600 flex items-center justify-center gap-1.5">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Memuat daftar provinsi...</span>
-                  </div>
-                )}
-                {!loadingProv && filteredProvinces.map((item) => {
-                  const nameFormatted = formatWilayahName(item.name);
-                  const isSelected = province.toLowerCase() === nameFormatted.toLowerCase();
-                  return (
-                    <div
-                      key={item.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleSelectProvince(item);
-                      }}
-                      className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between transition-colors ${
-                        isSelected ? 'bg-sky-50 text-sky-700 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <span className="truncate">{nameFormatted}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 ml-1" />}
-                    </div>
-                  );
-                })}
-                {!loadingProv && filteredProvinces.length === 0 && (
-                  <div className="px-3 py-3 text-center text-xs text-slate-400">
-                    Tidak ada provinsi yang cocok
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* FULLSCREEN LOCATION MAP MODAL */}
       {isMapModalOpen && (

@@ -15,7 +15,7 @@ import {
   ChevronRight,
   MapPin,
   Clock,
-  SlidersHorizontal,
+  Filter,
   X,
   RotateCcw
 } from 'lucide-react';
@@ -144,11 +144,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
         filterKecamatan.toLowerCase().includes(item.kecamatan!.toLowerCase())
       ));
 
-    const matchDesa = !filterDesa || 
-      (Boolean(item.desa) && (
-        item.desa!.toLowerCase().includes(filterDesa.toLowerCase()) ||
-        filterDesa.toLowerCase().includes(item.desa!.toLowerCase())
-      ));
+    const matchDesa = !filterDesa 
+      ? true 
+      : item.shareFullAddress === false 
+        ? false 
+        : (Boolean(item.desa) && (
+            item.desa!.toLowerCase().includes(filterDesa.toLowerCase()) ||
+            filterDesa.toLowerCase().includes(item.desa!.toLowerCase())
+          ));
 
     return (
       matchSearch &&
@@ -347,10 +350,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 }`}
                 title="Buka Filter Data"
               >
-                <SlidersHorizontal className="w-4 h-4" />
-                {hasActiveFilters && (
-                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full ml-1" />
-                )}
+                <Filter className="w-4 h-4" />
               </button>
             </div>
 
